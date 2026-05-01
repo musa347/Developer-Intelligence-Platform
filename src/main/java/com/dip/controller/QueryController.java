@@ -1,8 +1,13 @@
 package com.dip.controller;
 
+import com.dip.dto.QueryResponseDTO;
+import com.dip.dto.Source;
 import com.dip.orchestration.QueryOrchestrator;
 import com.dip.orchestration.QueryRequest;
 import com.dip.orchestration.QueryResponse;
+import com.dip.service.LLMService;
+import com.dip.service.DocumentIngestionService;
+import com.dip.domain.DocumentType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,6 +20,8 @@ import java.util.stream.Collectors;
 public class QueryController {
     
     private final QueryOrchestrator queryOrchestrator;
+    private final LLMService llmService;
+    private final DocumentIngestionService documentIngestionService;
     
     @PostMapping
     public ResponseEntity<QueryResponseDTO> query(@RequestBody QueryRequest request) throws ExecutionException, InterruptedException {
@@ -26,7 +33,7 @@ public class QueryController {
         dto.setServiceCode(request.getServiceCode());
         dto.setSources(response.getChunks().stream()
                 .map(chunk -> {
-                    var source = new QueryResponseDTO.Source();
+                    var source = new Source();
                     source.setDocumentType(chunk.getArtifact().getDocumentType().name());
                     source.setVersion(chunk.getArtifact().getVersion());
                     source.setSection(chunk.getSection());
@@ -36,21 +43,5 @@ public class QueryController {
                 .collect(Collectors.toList()));
         
         return ResponseEntity.ok(dto);
-    }
-    
-    @lombok.Data
-    public static class QueryResponseDTO {
-        private String answer;
-        private java.util.List<Source> sources;
-        private String confidence;
-        private String serviceCode;
-        
-        @lombok.Data
-        public static class Source {
-            private String documentType;
-            private String version;
-            private String section;
-            private String excerpt;
-        }
     }
 }

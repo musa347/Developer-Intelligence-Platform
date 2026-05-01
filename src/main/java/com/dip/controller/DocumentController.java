@@ -1,11 +1,9 @@
 package com.dip.controller;
 
-import com.dip.domain.DocumentArtifact;
+
+import com.dip.dto.IngestRequest;
 import com.dip.domain.DocumentType;
-import com.dip.domain.UserRole;
-import com.dip.security.RoleRequired;
 import com.dip.service.DocumentIngestionService;
-import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -13,7 +11,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.concurrent.ExecutionException;
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/documents")
@@ -23,45 +22,50 @@ public class DocumentController {
     private final DocumentIngestionService ingestionService;
     
     @PostMapping("/ingest")
-    @RoleRequired(UserRole.ADMIN)
-    public ResponseEntity<DocumentArtifact> ingestDocument(@RequestBody IngestRequest request) throws ExecutionException, InterruptedException {
-        DocumentArtifact artifact = ingestionService.ingestDocument(
+    public ResponseEntity<Map<String, Object>> ingestDocument(@RequestBody IngestRequest request) {
+        // Start async ingestion and return immediately
+        ingestionService.ingestDocumentAsync(
             request.getServiceCode(),
             request.getContent(),
             request.getDocumentType(),
             request.getVersion(),
             request.getSourceReference()
         );
-        return ResponseEntity.ok(artifact);
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "Document ingestion started successfully. Processing in background...");
+        response.put("status", "PROCESSING");
+        response.put("serviceCode", request.getServiceCode());
+        response.put("documentType", request.getDocumentType());
+        
+        return ResponseEntity.ok(response);
     }
     
     @PostMapping("/upload")
-    @RoleRequired(UserRole.ADMIN)
-    public ResponseEntity<DocumentArtifact> uploadDocument(
+    public ResponseEntity<Map<String, Object>> uploadDocument(
             @RequestParam("file") MultipartFile file,
             @RequestParam("serviceCode") String serviceCode,
             @RequestParam("documentType") DocumentType documentType,
-            @RequestParam("version") String version) throws ExecutionException, InterruptedException, IOException {
+            @RequestParam("version") String version) throws IOException {
         
         String content = new String(file.getBytes(), StandardCharsets.UTF_8);
         String sourceReference = file.getOriginalFilename();
-        
-        DocumentArtifact artifact = ingestionService.ingestDocument(
+
+        ingestionService.ingestDocumentAsync(
             serviceCode,
             content,
             documentType,
             version,
             sourceReference
         );
-        return ResponseEntity.ok(artifact);
-    }
-    
-    @Data
-    public static class IngestRequest {
-        private String serviceCode;
-        private String content;
-        private DocumentType documentType;
-        private String version;
-        private String sourceReference;
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "Document upload started successfully. Processing in background...");
+        response.put("status", "PROCESSING");
+        response.put("serviceCode", serviceCode);
+        response.put("documentType", documentType);
+        response.put("filename", sourceReference);
+        
+        return ResponseEntity.ok(response);
     }
 }

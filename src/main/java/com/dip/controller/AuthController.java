@@ -1,8 +1,13 @@
 package com.dip.controller;
 
+import com.dip.domain.PasswordResetToken;
 import com.dip.domain.User;
+import com.dip.dto.ForgotPasswordRequest;
+import com.dip.dto.LoginRequest;
+import com.dip.dto.ResetPasswordRequest;
+import com.dip.repository.PasswordResetTokenRepository;
 import com.dip.repository.UserRepository;
-import lombok.Data;
+import com.dip.service.EmailService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -10,8 +15,10 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -20,6 +27,8 @@ public class AuthController {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final EmailService emailService;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
@@ -59,16 +68,46 @@ public class AuthController {
 
     @PostMapping("/logout")
     public ResponseEntity<?> logout() {
-        // For stateless JWT, just return success
-        // Client will remove token from storage
         Map<String, String> response = new HashMap<>();
         response.put("message", "Logged out successfully");
         return ResponseEntity.ok(response);
     }
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@RequestBody ForgotPasswordRequest request) {
+        try {
+            User user = userRepository.findByEmail(request.getEmail())
+                    .orElse(null);
+            
+            if (user == null) {
+                return ResponseEntity.ok(Map.of("message", "Password reset email sent"));
+            }
+            
+            PasswordResetToken resetToken = new PasswordResetToken();
+            resetToken.setToken(UUID.randomUUID().toString());
+            resetToken.setUser(user);
+            resetToken.setExpiresAt(LocalDateTime.now().plusHours(1));
+            passwordResetTokenRepository.save(resetToken);
 
-    @Data
-    public static class LoginRequest {
-        private String username;
-        private String password;
+            emailService.sendPasswordResetEmail(user.getEmail(), resetToken.getToken());
+            return ResponseEntity.ok(Map.of("message", "Password reset email sent"));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", "Failed to send password reset email"));
+        }
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest request) {
+        return passwordResetTokenRepository.findByToken(request.getToken())
+                .map(resetToken -> {
+                    if (resetToken.isUsed() || resetToken.getExpiresAt().isBefore(LocalDateTime.now())) {
+                        return ResponseEntity.status(400).body(Map.of("error", "Token is invalid or expired"));
+                    }
+                    resetToken.getUser().setPassword(passwordEncoder.encode(request.getNewPassword()));
+                    userRepository.save(resetToken.getUser());
+                    resetToken.setUsed(true);
+                    passwordResetTokenRepository.save(resetToken);
+                    return ResponseEntity.ok(Map.of("message", "Password reset successfully"));
+                })
+                .orElse(ResponseEntity.status(400).body(Map.of("error", "Invalid token")));
     }
 }

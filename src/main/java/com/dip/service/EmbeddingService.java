@@ -1,6 +1,7 @@
 package com.dip.service;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import java.time.Duration;
@@ -12,9 +13,40 @@ import java.util.Map;
 public class EmbeddingService {
     
     private final WebClient ollamaWebClient;
+    private final WebClient huggingfaceWebClient;
+    
+    @Value("${huggingface.api.key:}")
+    private String huggingfaceApiKey;
+    
+    @Value("${huggingface.embedding.model}")
+    private String embeddingModel;
     
     public float[] generateEmbedding(String text) {
-        Map<String, Object> response = ollamaWebClient.post()
+        return generateEmbeddingWithOllama(text);
+    }
+    
+    @SuppressWarnings("unchecked")
+    private float[] generateEmbeddingWithHuggingFace(String text) {
+        Map<String, Object> response = (Map<String, Object>) huggingfaceWebClient.post()
+            .uri("/" + embeddingModel)
+            .header("Authorization", "Bearer " + huggingfaceApiKey)
+            .bodyValue(Map.of(
+                "inputs", text
+            ))
+            .retrieve()
+            .bodyToMono(Map.class)
+            .timeout(Duration.ofSeconds(30))
+            .block();
+        
+        List<List<Double>> embeddings = (List<List<Double>>) response.get("embeddings");
+        List<Double> embedding = embeddings.get(0);
+        
+        return convertToFloatArray(embedding);
+    }
+    
+    @SuppressWarnings("unchecked")
+    private float[] generateEmbeddingWithOllama(String text) {
+        Map<String, Object> response = (Map<String, Object>) ollamaWebClient.post()
             .uri("/api/embeddings")
             .bodyValue(Map.of(
                 "model", "nomic-embed-text",
@@ -27,6 +59,10 @@ public class EmbeddingService {
         
         List<Double> embedding = (List<Double>) response.get("embedding");
         
+        return convertToFloatArray(embedding);
+    }
+    
+    private float[] convertToFloatArray(List<Double> embedding) {
         float[] result = new float[embedding.size()];
         for (int i = 0; i < embedding.size(); i++) {
             result[i] = embedding.get(i).floatValue();

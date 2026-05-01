@@ -2,7 +2,6 @@ package com.dip.service;
 
 import com.dip.domain.ChunkType;
 import io.swagger.v3.oas.models.OpenAPI;
-import io.swagger.v3.oas.models.PathItem;
 import io.swagger.v3.parser.OpenAPIV3Parser;
 import lombok.Data;
 import org.springframework.stereotype.Service;
@@ -12,10 +11,25 @@ import java.util.List;
 @Service
 public class DocumentParser {
     
+    public List<ParsedChunk> parseText(String content) {
+        List<ParsedChunk> chunks = new ArrayList<>();
+        String[] paragraphs = content.split("\n\n+");
+        for (String para : paragraphs) {
+            para = para.trim();
+            if (para.length() < 50) continue;
+            String[] lines = para.split("\n", 2);
+            String title = lines[0].substring(0, Math.min(60, lines[0].length()));
+            chunks.add(new ParsedChunk(para, title, ChunkType.CONCEPT));
+        }
+        if (chunks.isEmpty() && content.trim().length() > 50) {
+            chunks.add(new ParsedChunk(content.trim(), "Document", ChunkType.CONCEPT));
+        }
+        return chunks;
+    }
+
     public List<ParsedChunk> parseMarkdown(String content) {
         List<ParsedChunk> chunks = new ArrayList<>();
-        
-        // Split by markdown headers (# ## ###) or by lines of === or ---
+
         String[] sections = content.split("(?m)^#{1,3}\\s+|(?m)^={3,}$|(?m)^-{3,}$");
         
         for (String section : sections) {
@@ -25,10 +39,9 @@ public class DocumentParser {
             String title = lines[0].trim();
             String body = lines.length > 1 ? lines[1].trim() : "";
             
-            // Skip if title is just separators or too short
+
             if (title.matches("[=\\-\\s]+") || title.length() < 3) continue;
-            
-            // Only create chunk if there's meaningful content
+
             if (body.length() > 50) {
                 chunks.add(new ParsedChunk(
                     title + "\n\n" + body,
@@ -37,8 +50,7 @@ public class DocumentParser {
                 ));
             }
         }
-        
-        // If no chunks found, split by double newlines as fallback
+
         if (chunks.isEmpty()) {
             String[] paragraphs = content.split("\n\n+");
             for (int i = 0; i < paragraphs.length; i++) {

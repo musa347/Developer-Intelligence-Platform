@@ -7,5 +7,6 @@ public enum DocumentType {
     SWAGGER,
     ARCHITECTURE,
     RUNBOOK,
-    ERROR_REFERENCE
+    ERROR_REFERENCE,
+    MANUAL
 }

@@ -26,17 +26,14 @@ public class QueryOrchestrator {
     
     public QueryResponse execute(QueryRequest request) throws ExecutionException, InterruptedException {
         long startTime = System.currentTimeMillis();
-        
-        // Step 1: Classify intent
+
         QueryIntent intent = intentClassifier.classifyIntent(request.getQuery());
         log.info("Query intent classified as: {}", intent);
-        
-        // Step 2: Resolve strategy
+
         RetrievalStrategy strategy = strategyResolver.resolve(intent);
         int topK = strategyResolver.getTopK(strategy);
         log.info("Using retrieval strategy: {} with topK={}", strategy, topK);
-        
-        // Step 3: Retrieve relevant chunks
+
         var service = serviceRegistryService.getServiceByCode(request.getServiceCode());
         List<DocumentChunk> chunks = retrievalEngine.retrieve(
                 request.getQuery(), 
@@ -45,14 +42,10 @@ public class QueryOrchestrator {
                 topK
         );
         log.info("Retrieved {} chunks", chunks.size());
-        
-        // Step 4: Compose answer
+
         String answer = answerComposer.compose(request.getQuery(), chunks, service.getName());
-        
-        // Step 5: Evaluate confidence
         String confidence = confidenceEvaluator.evaluate(chunks, strategy);
-        
-        // Step 6: Audit
+
         long responseTime = System.currentTimeMillis() - startTime;
         auditQuery(request, service, intent, confidence, responseTime);
         

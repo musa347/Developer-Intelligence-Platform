@@ -29,15 +29,17 @@ public class SecurityConfig implements WebMvcConfigurer {
                             "/", 
                             "/index.html", 
                             "/app.html", 
-                            "/api/auth/**",           // All auth endpoints
-                            "/api/registration/**",   // All registration endpoints
-                            "/api/services/**",       // Service endpoints
-                            "/api/documents/**",      // Document endpoints
-                            "/api/query/**",          // Query endpoints
-                            "/api/users/**",          // User endpoints (role check in interceptor)
+                            "/api/auth/**",
+                            "/api/registration/**",
+                            "/api/services/**",
+                            "/api/documents/**",
+                            "/api/query/**",
+                            "/api/users/**",
+                            "/api/test/**",
                             "/login/**", 
                             "/oauth2/**"
                         ).permitAll()
+                        .requestMatchers("/api/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2

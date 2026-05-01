@@ -2,6 +2,7 @@ package com.dip.controller;
 
 import com.dip.domain.Service;
 import com.dip.domain.UserRole;
+import com.dip.dto.ServiceWithOwnerRequest;
 import com.dip.security.RoleRequired;
 import com.dip.service.ServiceRegistryService;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,12 @@ public class ServiceController {
     @RoleRequired(UserRole.ADMIN)
     public ResponseEntity<Service> registerService(@RequestBody Service service) {
         return ResponseEntity.ok(serviceRegistryService.registerService(service));
+    }
+    
+    @PostMapping("/with-owner")
+    @RoleRequired(UserRole.ADMIN)
+    public ResponseEntity<Service> registerServiceWithOwner(@RequestBody ServiceWithOwnerRequest request) {
+        return ResponseEntity.ok(serviceRegistryService.registerServiceWithOwner(request));
     }
     
     @GetMapping

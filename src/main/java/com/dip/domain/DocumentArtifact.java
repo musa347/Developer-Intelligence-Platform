@@ -18,6 +18,7 @@ public class DocumentArtifact {
     private Service service;
     
     @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "VARCHAR(20)")
     private DocumentType documentType;
     
     private String version;

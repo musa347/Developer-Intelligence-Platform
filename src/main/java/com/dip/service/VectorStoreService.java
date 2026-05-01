@@ -69,15 +69,46 @@ public class VectorStoreService {
     public void upsertVector(String id, float[] vector, Map<String, Object> payload)
             throws ExecutionException, InterruptedException {
 
+        List<Float> vectorList = new ArrayList<>();
+        for (float f : vector) {
+            vectorList.add(f);
+        }
+
+        Map<String, io.qdrant.client.grpc.JsonWithInt.Value> payloadMap = new HashMap<>();
+        if (payload != null) {
+            payload.forEach((key, value) -> {
+                if (value instanceof String) {
+                    payloadMap.put(key, io.qdrant.client.grpc.JsonWithInt.Value.newBuilder()
+                            .setStringValue((String) value).build());
+                } else if (value instanceof Number) {
+                    payloadMap.put(key, io.qdrant.client.grpc.JsonWithInt.Value.newBuilder()
+                            .setIntegerValue(((Number) value).longValue()).build());
+                } else {
+                    payloadMap.put(key, io.qdrant.client.grpc.JsonWithInt.Value.newBuilder()
+                            .setStringValue(String.valueOf(value)).build());
+                }
+            });
+        }
+
         PointStruct point = PointStruct.newBuilder()
                 .setId(PointId.newBuilder().setUuid(id).build())
                 .setVectors(Vectors.newBuilder().setVector(
-                        io.qdrant.client.grpc.Points.Vector.newBuilder().addAllData(toList(vector)).build()
+                        io.qdrant.client.grpc.Points.Vector.newBuilder().addAllData(vectorList).build()
                 ).build())
-                .putAllPayload(toPayload(payload))
+                .putAllPayload(payloadMap)
                 .build();
 
-        qdrantClient.upsertAsync(collectionName, List.of(point)).get();
+        UpsertPoints upsertPoints = UpsertPoints.newBuilder()
+                .setCollectionName(collectionName)
+                .addPoints(point)
+                .build();
+
+        try {
+            var result = qdrantClient.upsertAsync(upsertPoints).get();
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw e;
+        }
     }
 
     public List<String> searchSimilar(float[] queryVector, Long serviceId, int limit, com.dip.domain.ChunkType chunkTypeFilter)
@@ -100,10 +131,16 @@ public class VectorStoreService {
                     .build());
         }
 
+
+        List<Float> queryVectorList = new ArrayList<>();
+        for (float f : queryVector) {
+            queryVectorList.add(f);
+        }
+
         List<ScoredPoint> results = qdrantClient.searchAsync(
                 SearchPoints.newBuilder()
                         .setCollectionName(collectionName)
-                        .addAllVector(toList(queryVector))
+                        .addAllVector(queryVectorList)
                         .setLimit(limit)
                         .setFilter(filterBuilder.build())
                         .setWithPayload(WithPayloadSelector.newBuilder().setEnable(true).build())
@@ -112,28 +149,6 @@ public class VectorStoreService {
 
         return results.stream()
                 .map(point -> point.getPayloadOrThrow("chunk_id").getStringValue())
-                .toList();
-    }
-
-    private List<Float> toList(float[] array) {
-        List<Float> list = new ArrayList<>(array.length);
-        for (float f : array) {
-            list.add(f);
-        }
-        return list;
-    }
-
-    private Map<String, io.qdrant.client.grpc.JsonWithInt.Value> toPayload(Map<String, Object> map) {
-        Map<String, io.qdrant.client.grpc.JsonWithInt.Value> payload = new HashMap<>();
-        map.forEach((key, value) -> {
-            if (value instanceof String) {
-                payload.put(key, io.qdrant.client.grpc.JsonWithInt.Value.newBuilder()
-                        .setStringValue((String) value).build());
-            } else if (value instanceof Long) {
-                payload.put(key, io.qdrant.client.grpc.JsonWithInt.Value.newBuilder()
-                        .setIntegerValue((Long) value).build());
-            }
-        });
-        return payload;
+                .collect(java.util.stream.Collectors.toList());
     }
 }

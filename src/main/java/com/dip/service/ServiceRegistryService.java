@@ -1,7 +1,10 @@
 package com.dip.service;
 
 import com.dip.domain.ServiceStatus;
+import com.dip.domain.User;
+import com.dip.dto.ServiceWithOwnerRequest;
 import com.dip.repository.ServiceRepository;
+import com.dip.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import java.util.List;
@@ -10,8 +13,26 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ServiceRegistryService {
     private final ServiceRepository serviceRepository;
+    private final UserRepository userRepository;
     
     public com.dip.domain.Service registerService(com.dip.domain.Service service) {
+        return serviceRepository.save(service);
+    }
+    
+    public com.dip.domain.Service registerServiceWithOwner(ServiceWithOwnerRequest request) {
+        com.dip.domain.Service service = new com.dip.domain.Service();
+        service.setServiceCode(request.getServiceCode());
+        service.setName(request.getName());
+        service.setDomain(request.getDomain());
+        service.setOwningTeam(request.getOwningTeam());
+        service.setStatus(request.getStatus());
+        
+        if (request.getOwnerId() != null) {
+            User owner = userRepository.findById(request.getOwnerId())
+                .orElseThrow(() -> new RuntimeException("User not found: " + request.getOwnerId()));
+            service.setOwner(owner);
+        }
+        
         return serviceRepository.save(service);
     }
     

@@ -21,6 +21,10 @@ public class Service {
     private String domain;
     private String owningTeam;
     
+    @ManyToOne
+    @JoinColumn(name = "owner_id")
+    private User owner;
+    
     @Enumerated(EnumType.STRING)
     private ServiceStatus status;
     
