@@ -63,7 +63,7 @@ public class QdrantInitializationService {
     
     private void createCollection() {
         Map<String, Object> vectorsConfig = Map.of(
-            "size", 768,
+            "size", 1536,
             "distance", "Cosine"
         );
         
