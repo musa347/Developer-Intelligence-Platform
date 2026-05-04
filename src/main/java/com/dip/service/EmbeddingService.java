@@ -27,7 +27,7 @@ public class EmbeddingService {
     @SuppressWarnings("unchecked")
     private float[] generateEmbeddingWithHuggingFace(String text) {
         Map<String, Object> response = (Map<String, Object>) huggingfaceWebClient.post()
-            .uri("/" + embeddingModel)
+            .uri("/models/" + embeddingModel)
             .header("Authorization", "Bearer " + huggingfaceApiKey)
             .bodyValue(Map.of(
                 "inputs", text
