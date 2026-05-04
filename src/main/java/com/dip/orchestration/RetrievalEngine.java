@@ -107,11 +107,11 @@ public class RetrievalEngine {
     
     private ChunkType getChunkTypeFilter(RetrievalStrategy strategy) {
         return switch (strategy) {
-            case DOCUMENTATION -> ChunkType.SECTION;
-            case ENDPOINT_DRILLDOWN -> ChunkType.API_SPEC;
-            case ARCHITECTURE -> ChunkType.SECTION;
-            case TROUBLESHOOTING -> ChunkType.PARAGRAPH;
-            case VERSION_DIFF -> ChunkType.SECTION;
+            case DOCUMENTATION -> ChunkType.CONCEPT;
+            case ENDPOINT_DRILLDOWN -> ChunkType.ENDPOINT;
+            case ARCHITECTURE -> ChunkType.ARCHITECTURE;
+            case TROUBLESHOOTING -> ChunkType.ERROR;
+            case VERSION_DIFF -> ChunkType.CONCEPT;
             default -> null; // No filtering
         };
     }

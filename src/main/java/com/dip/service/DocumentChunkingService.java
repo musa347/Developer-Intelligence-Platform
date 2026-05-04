@@ -78,7 +78,7 @@ public class DocumentChunkingService {
                             currentTitle,
                             currentSection.toString().trim(),
                             sectionNumber,
-                            ChunkType.SECTION
+                            ChunkType.CONCEPT
                     ));
                     sectionNumber++;
                 }
@@ -96,7 +96,7 @@ public class DocumentChunkingService {
                     currentTitle,
                     currentSection.toString().trim(),
                     sectionNumber,
-                    ChunkType.SECTION
+                    ChunkType.CONCEPT
             ));
         }
 
@@ -118,7 +118,7 @@ public class DocumentChunkingService {
                         title,
                         section,
                         i,
-                        ChunkType.API_SPEC
+                        ChunkType.ENDPOINT
                 ));
             }
         }
@@ -140,7 +140,7 @@ public class DocumentChunkingService {
                         "Paragraph " + (i + 1),
                         paragraph,
                         i,
-                        ChunkType.PARAGRAPH
+                        ChunkType.ERROR
                 ));
             }
         }
