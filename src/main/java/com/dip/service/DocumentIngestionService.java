@@ -19,7 +19,8 @@ public class DocumentIngestionService {
     
     private final DocumentArtifactRepository artifactRepository;
     private final DocumentChunkRepository chunkRepository;
-    private final DocumentParser documentParser;
+    private final DocumentChunkingService documentChunkingService;
+    private final PIIMaskingService piiMaskingService;
     private final EmbeddingService embeddingService;
     private final ServiceRegistryService serviceRegistryService;
     private final VectorStoreService vectorStoreService;
@@ -67,21 +68,12 @@ public class DocumentIngestionService {
         artifact = artifactRepository.save(artifact);
         log.info("[DEBUG] Saved artifact with ID: {}", artifact.getId());
 
-        List<DocumentParser.ParsedChunk> parsedChunks = switch (documentType) {
-            case MARKDOWN, README -> documentParser.parseMarkdown(content);
-            case OPENAPI, SWAGGER -> documentParser.parseOpenAPI(content);
-            default -> documentParser.parseText(content);
-        };
+        // Use improved chunking service
+        List<DocumentChunk> chunks = documentChunkingService.chunkDocument(artifact.getId().toString(), documentType, content);
         
-        List<DocumentChunk> chunks = new ArrayList<>();
-        for (DocumentParser.ParsedChunk parsed : parsedChunks) {
-            DocumentChunk chunk = new DocumentChunk();
+        // Set artifact reference for all chunks
+        for (DocumentChunk chunk : chunks) {
             chunk.setArtifact(artifact);
-            chunk.setContent(parsed.getContent());
-            chunk.setSection(parsed.getSection());
-            chunk.setChunkType(parsed.getChunkType());
-            chunk.setVectorId(UUID.randomUUID().toString());
-            chunks.add(chunk);
         }
         
         chunks = chunkRepository.saveAll(chunks);
@@ -89,18 +81,32 @@ public class DocumentIngestionService {
 
         for (int i = 0; i < chunks.size(); i++) {
             DocumentChunk chunk = chunks.get(i);
-            DocumentParser.ParsedChunk parsed = parsedChunks.get(i);
             
-            log.info("[DEBUG] Generating embedding for chunk {}/{} (vectorId: {})", i + 1, chunks.size(), chunk.getVectorId());
+            log.info("[DEBUG] Processing chunk {}/{} (vectorId: {})", i + 1, chunks.size(), chunk.getVectorId());
             try {
-                float[] embedding = embeddingService.generateEmbedding(parsed.getContent());
+                // Apply PII masking for security
+                String maskedContent = piiMaskingService.maskPII(chunk.getContent());
+                
+                // Generate embedding for masked content
+                float[] embedding = embeddingService.generateEmbedding(maskedContent);
                 log.info("[DEBUG] Generated embedding with {} dimensions", embedding.length);
 
+                // Create comprehensive metadata
                 Map<String, Object> payload = new HashMap<>();
                 payload.put("service_id", service.getId());
+                payload.put("service_code", service.getCode());
+                payload.put("service_name", service.getName());
+                payload.put("artifact_id", artifact.getId());
                 payload.put("chunk_id", String.valueOf(chunk.getId()));
-                payload.put("section", parsed.getSection());
-                payload.put("chunk_type", parsed.getChunkType().name());
+                payload.put("section", chunk.getSection());
+                payload.put("section_number", chunk.getSectionNumber());
+                payload.put("chunk_type", chunk.getChunkType().name());
+                payload.put("document_type", documentType.name());
+                payload.put("version", version);
+                payload.put("source_reference", sourceReference);
+                payload.put("effective_date", artifact.getEffectiveDate().toString());
+                payload.put("content_length", maskedContent.length());
+                payload.put("has_pii", !maskedContent.equals(chunk.getContent())); // Flag if PII was found
                 
                 log.info("[DEBUG] Upserting vector to Qdrant with ID: {}, payload keys: {}", chunk.getVectorId(), payload.keySet());
 
