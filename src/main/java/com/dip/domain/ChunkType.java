@@ -5,5 +5,8 @@ public enum ChunkType {
     CONCEPT,
     ERROR,
     ARCHITECTURE,
-    INTEGRATION
+    INTEGRATION,
+    SECTION,
+    API_SPEC,
+    PARAGRAPH
 }

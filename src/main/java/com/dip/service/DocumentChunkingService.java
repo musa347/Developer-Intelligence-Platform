@@ -1,5 +1,6 @@
 package com.dip.service;
 
+import com.dip.domain.ChunkType;
 import com.dip.domain.DocumentChunk;
 import com.dip.domain.DocumentType;
 import lombok.RequiredArgsConstructor;
@@ -77,7 +78,7 @@ public class DocumentChunkingService {
                             currentTitle,
                             currentSection.toString().trim(),
                             sectionNumber,
-                            DocumentChunk.ChunkType.SECTION
+                            ChunkType.SECTION
                     ));
                     sectionNumber++;
                 }
@@ -95,7 +96,7 @@ public class DocumentChunkingService {
                     currentTitle,
                     currentSection.toString().trim(),
                     sectionNumber,
-                    DocumentChunk.ChunkType.SECTION
+                    ChunkType.SECTION
             ));
         }
 
@@ -117,7 +118,7 @@ public class DocumentChunkingService {
                         title,
                         section,
                         i,
-                        DocumentChunk.ChunkType.API_SPEC
+                        ChunkType.API_SPEC
                 ));
             }
         }
@@ -139,7 +140,7 @@ public class DocumentChunkingService {
                         "Paragraph " + (i + 1),
                         paragraph,
                         i,
-                        DocumentChunk.ChunkType.PARAGRAPH
+                        ChunkType.PARAGRAPH
                 ));
             }
         }
@@ -222,7 +223,7 @@ public class DocumentChunkingService {
     }
 
     private DocumentChunk createChunk(String artifactId, String title, String content, 
-                                     int sectionNumber, DocumentChunk.ChunkType chunkType) {
+                                     int sectionNumber, ChunkType chunkType) {
         DocumentChunk chunk = new DocumentChunk();
         chunk.setVectorId(UUID.randomUUID().toString());
         chunk.setSection(title);
