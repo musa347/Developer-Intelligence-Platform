@@ -12,7 +12,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class IntentClassifier {
     
-    private final WebClient groqWebClient;
+    private final WebClient llmWebClient;
     
     public QueryIntent classifyIntent(String query) {
         String prompt = """
@@ -31,7 +31,9 @@ public class IntentClassifier {
             """.formatted(query);
         
         try {
-            Map<String, Object> response = groqWebClient.post()
+            Map<String, Object> response = llmWebClient.post()
+                .uri("/chat/completions")
+                .header("Content-Type", "application/json")
                 .bodyValue(Map.of(
                     "model", "llama-3.1-8b-instant",
                     "messages", List.of(
