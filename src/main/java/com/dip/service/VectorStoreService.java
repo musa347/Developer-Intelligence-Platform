@@ -120,6 +120,17 @@ public class VectorStoreService {
     public List<String> searchSimilar(float[] queryVector, Long serviceId, int limit, com.dip.domain.ChunkType chunkTypeFilter)
             throws ExecutionException, InterruptedException {
 
+        List<ScoredPoint> scoredPoints = searchSimilarWithScores(queryVector, serviceId, limit, chunkTypeFilter);
+        
+        return scoredPoints.stream()
+                .filter(point -> point.getPayloadMap().containsKey("chunk_id"))
+                .map(point -> point.getPayloadMap().get("chunk_id").getStringValue())
+                .collect(java.util.stream.Collectors.toList());
+    }
+    
+    public List<ScoredPoint> searchSimilarWithScores(float[] queryVector, Long serviceId, int limit, com.dip.domain.ChunkType chunkTypeFilter)
+            throws ExecutionException, InterruptedException {
+
         Filter.Builder filterBuilder = Filter.newBuilder()
                 .addMust(Condition.newBuilder()
                         .setField(FieldCondition.newBuilder()
@@ -137,24 +148,20 @@ public class VectorStoreService {
                     .build());
         }
 
-
         List<Float> queryVectorList = new ArrayList<>();
         for (float f : queryVector) {
             queryVectorList.add(f);
         }
 
-        List<ScoredPoint> results = qdrantClient.searchAsync(
+        return qdrantClient.searchAsync(
                 SearchPoints.newBuilder()
                         .setCollectionName(collectionName)
                         .addAllVector(queryVectorList)
                         .setLimit(limit)
                         .setFilter(filterBuilder.build())
                         .setWithPayload(WithPayloadSelector.newBuilder().setEnable(true).build())
+                        .setWithVector(WithVectorSelector.newBuilder().setEnable(true).build())
                         .build()
         ).get();
-
-        return results.stream()
-                .map(point -> point.getPayloadOrThrow("chunk_id").getStringValue())
-                .collect(java.util.stream.Collectors.toList());
     }
 }
