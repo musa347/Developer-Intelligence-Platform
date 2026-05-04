@@ -15,9 +15,6 @@ import java.util.concurrent.TimeUnit;
 @Configuration
 public class WebClientConfig {
     
-    @Value("${ollama.api.url}")
-    private String ollamaUrl;
-    
     @Value("${huggingface.api.url}")
     private String huggingfaceUrl;
     
@@ -30,35 +27,12 @@ public class WebClientConfig {
     @Value("${qdrant.use-tls}")
     private boolean qdrantUseTls;
     
-    @Value("${ollama.timeout.connect:5}")
-    private int ollamaConnectTimeout;
-    
-    @Value("${ollama.timeout.read:30}")
-    private int ollamaReadTimeout;
-    
-    @Value("${ollama.timeout.write:30}")
-    private int ollamaWriteTimeout;
-    
     @Value("${huggingface.timeout.connect:10}")
     private int huggingfaceConnectTimeout;
     
     @Value("${huggingface.timeout.read:30}")
     private int huggingfaceReadTimeout;
     
-    @Bean
-    public WebClient ollamaWebClient() {
-        HttpClient httpClient = HttpClient.create()
-            .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, ollamaConnectTimeout * 1000)
-            .responseTimeout(Duration.ofSeconds(ollamaReadTimeout))
-            .doOnConnected(conn -> conn
-                .addHandlerLast(new ReadTimeoutHandler(ollamaReadTimeout, TimeUnit.SECONDS))
-                .addHandlerLast(new WriteTimeoutHandler(ollamaWriteTimeout, TimeUnit.SECONDS)));
-        
-        return WebClient.builder()
-            .baseUrl(ollamaUrl)
-            .clientConnector(new ReactorClientHttpConnector(httpClient))
-            .build();
-    }
     
     @Bean
     public WebClient huggingfaceWebClient() {
