@@ -5,16 +5,22 @@ services:
     plan: free
     dockerfilePath: ./Dockerfile
     envVars:
-      - key: SERVER_PORT
+      - key: PORT
         value: 8080
       - key: QDRANT_PORT
-        value: 6334
+        value: 6333
       - key: QDRANT_USE_TLS
-        value: true
+        value: false
       - key: QDRANT_COLLECTION_NAME
         value: cpdip-docs
-      - key: GROQ_CHAT_MODEL
+      - key: EMBEDDING_MODEL
+        value: text-embedding-3-small
+      - key: LLM_MODEL
         value: llama-3.1-8b-instant
+      - key: LLM_TEMPERATURE
+        value: 0.1
+      - key: LLM_MAX_TOKENS
+        value: 512
       - key: DATABASE_URL
         sync: false
       - key: DATABASE_USERNAME
@@ -25,9 +31,9 @@ services:
         sync: false
       - key: QDRANT_API_KEY
         sync: false
-      - key: GROQ_API_KEY
+      - key: OPENAI_API_KEY
         sync: false
-      - key: HUGGINGFACE_API_KEY
+      - key: GROQ_API_KEY
         sync: false
       - key: GOOGLE_CLIENT_ID
         sync: false
