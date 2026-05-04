@@ -12,33 +12,37 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class EmbeddingService {
     
-    private final WebClient huggingfaceWebClient;
+    private final WebClient embeddingWebClient;
     
-    @Value("${huggingface.api.key:}")
-    private String huggingfaceApiKey;
+    @Value("${embedding.api.key:}")
+    private String embeddingApiKey;
     
-    @Value("${huggingface.embedding.model}")
+    @Value("${embedding.model.name}")
     private String embeddingModel;
     
     public float[] generateEmbedding(String text) {
-        return generateEmbeddingWithHuggingFace(text);
+        return generateEmbeddingWithOpenAI(text);
     }
     
     @SuppressWarnings("unchecked")
-    private float[] generateEmbeddingWithHuggingFace(String text) {
-        Map<String, Object> response = (Map<String, Object>) huggingfaceWebClient.post()
-            .uri("/models/" + embeddingModel)
-            .header("Authorization", "Bearer " + huggingfaceApiKey)
-            .bodyValue(Map.of(
-                "inputs", text
-            ))
+    private float[] generateEmbeddingWithOpenAI(String text) {
+        Map<String, Object> requestBody = Map.of(
+            "model", embeddingModel,
+            "input", text
+        );
+        
+        Map<String, Object> response = (Map<String, Object>) embeddingWebClient.post()
+            .uri("/embeddings")
+            .header("Authorization", "Bearer " + embeddingApiKey)
+            .header("Content-Type", "application/json")
+            .bodyValue(requestBody)
             .retrieve()
             .bodyToMono(Map.class)
             .timeout(Duration.ofSeconds(30))
             .block();
         
-        List<List<Double>> embeddings = (List<List<Double>>) response.get("embeddings");
-        List<Double> embedding = embeddings.get(0);
+        List<List<Double>> data = (List<List<Double>>) response.get("data");
+        List<Double> embedding = data.get(0);
         
         return convertToFloatArray(embedding);
     }

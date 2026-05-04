@@ -1,12 +1,8 @@
 package com.dip.service;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.web.client.RestTemplateBuilder;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -14,27 +10,27 @@ import java.util.Map;
 @Service
 public class LLMService {
     
-    private final RestTemplate restTemplate;
-    private final String groqApiUrl;
-    private final String groqApiKey;
-    private final String groqModel;
+    private final WebClient llmWebClient;
+    private final String llmApiUrl;
+    private final String llmApiKey;
+    private final String llmModel;
+    private final double temperature;
+    private final int maxTokens;
     
     public LLMService(
-        @Value("${groq.api.url}") String groqApiUrl,
-        @Value("${groq.api.key:}") String groqApiKey,
-        @Value("${groq.chat.model}") String groqModel,
-        @Value("${groq.timeout.connect:10}") int groqConnectTimeout,
-        @Value("${groq.timeout.read:30}") int groqReadTimeout,
-        RestTemplateBuilder builder
+        @Value("${llm.chat.url}") String llmApiUrl,
+        @Value("${llm.api.key:}") String llmApiKey,
+        @Value("${llm.chat.model}") String llmModel,
+        @Value("${llm.temperature:0.1}") double temperature,
+        @Value("${llm.max.tokens:512}") int maxTokens,
+        WebClient llmWebClient
     ) {
-        this.groqApiUrl = groqApiUrl;
-        this.groqApiKey = groqApiKey;
-        this.groqModel = groqModel;
-        
-        this.restTemplate = builder
-            .setConnectTimeout(Duration.ofSeconds(groqConnectTimeout))
-            .setReadTimeout(Duration.ofSeconds(groqReadTimeout))
-            .build();
+        this.llmApiUrl = llmApiUrl;
+        this.llmApiKey = llmApiKey;
+        this.llmModel = llmModel;
+        this.temperature = temperature;
+        this.maxTokens = maxTokens;
+        this.llmWebClient = llmWebClient;
     }
     
     public String generateAnswer(String serviceName, String query, String context) {
@@ -42,36 +38,34 @@ public class LLMService {
             return "This information is not documented in the available documentation for " + serviceName + ".";
         }
         
-        return generateAnswerWithGroq(serviceName, query, context);
+        return generateAnswerWithLLM(serviceName, query, context);
     }
     
-    private String generateAnswerWithGroq(String serviceName, String query, String context) {
+    private String generateAnswerWithLLM(String serviceName, String query, String context) {
         String prompt = String.format(
             "Answer this question using ONLY the context below. Be brief and concise.\n\nContext: %s\n\nQuestion: %s\n\nAnswer:",
             context, query
         );
         
         Map<String, Object> requestBody = Map.of(
-            "model", groqModel,
+            "model", llmModel,
             "messages", List.of(
                 Map.of("role", "user", "content", prompt)
             ),
-            "max_tokens", 150,
-            "temperature", 0.1
+            "max_tokens", maxTokens,
+            "temperature", temperature
         );
         
         try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.setBearerAuth(groqApiKey);
-            
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
-            
-            Map<String, Object> response = restTemplate.postForObject(
-                groqApiUrl,
-                entity,
-                Map.class
-            );
+            Map<String, Object> response = (Map<String, Object>) llmWebClient.post()
+                .uri("/chat/completions")
+                .header("Authorization", "Bearer " + llmApiKey)
+                .header("Content-Type", "application/json")
+                .bodyValue(requestBody)
+                .retrieve()
+                .bodyToMono(Map.class)
+                .timeout(Duration.ofSeconds(30))
+                .block();
             
             if (response != null && response.containsKey("choices")) {
                 List<Map<String, Object>> choices = (List<Map<String, Object>>) response.get("choices");
@@ -82,10 +76,9 @@ public class LLMService {
                 }
             }
             
-            return "No response from Groq";
+            return "No response from LLM";
         } catch (Exception e) {
-            return "Error: Groq API unavailable. Please check your API key or try again.";
+            return "Error: LLM API unavailable. Please check your API key or try again.";
         }
     }
-    
-    }
+}

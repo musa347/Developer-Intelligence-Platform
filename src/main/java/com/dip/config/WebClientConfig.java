@@ -15,8 +15,8 @@ import java.util.concurrent.TimeUnit;
 @Configuration
 public class WebClientConfig {
     
-    @Value("${huggingface.api.url}")
-    private String huggingfaceUrl;
+    @Value("${embedding.model.url}")
+    private String embeddingUrl;
     
     @Value("${qdrant.host}")
     private String qdrantHost;
@@ -27,48 +27,34 @@ public class WebClientConfig {
     @Value("${qdrant.use-tls}")
     private boolean qdrantUseTls;
     
-    @Value("${huggingface.timeout.connect:10}")
-    private int huggingfaceConnectTimeout;
+    @Value("${llm.chat.url}")
+    private String llmUrl;
     
-    @Value("${huggingface.timeout.read:30}")
-    private int huggingfaceReadTimeout;
+    @Value("${llm.timeout.connect:10}")
+    private int llmConnectTimeout;
     
-    @Value("${groq.api.url}")
-    private String groqUrl;
-    
-    @Value("${groq.timeout.connect:10}")
-    private int groqConnectTimeout;
-    
-    @Value("${groq.timeout.read:30}")
-    private int groqReadTimeout;
+    @Value("${llm.timeout.read:30}")
+    private int llmReadTimeout;
     
     @Bean
-    public WebClient groqWebClient() {
+    public WebClient llmWebClient() {
         HttpClient httpClient = HttpClient.create()
-            .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, groqConnectTimeout * 1000)
-            .responseTimeout(Duration.ofSeconds(groqReadTimeout))
+            .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, llmConnectTimeout * 1000)
+            .responseTimeout(Duration.ofSeconds(llmReadTimeout))
             .doOnConnected(conn -> conn
-                .addHandlerLast(new ReadTimeoutHandler(groqReadTimeout, TimeUnit.SECONDS))
-                .addHandlerLast(new WriteTimeoutHandler(groqReadTimeout, TimeUnit.SECONDS)));
+                .addHandlerLast(new ReadTimeoutHandler(llmReadTimeout, TimeUnit.SECONDS))
+                .addHandlerLast(new WriteTimeoutHandler(llmReadTimeout, TimeUnit.SECONDS)));
         
         return WebClient.builder()
-            .baseUrl(groqUrl)
+            .baseUrl(llmUrl)
             .clientConnector(new ReactorClientHttpConnector(httpClient))
             .build();
     }
     
     @Bean
-    public WebClient huggingfaceWebClient() {
-        HttpClient httpClient = HttpClient.create()
-            .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, huggingfaceConnectTimeout * 1000)
-            .responseTimeout(Duration.ofSeconds(huggingfaceReadTimeout))
-            .doOnConnected(conn -> conn
-                .addHandlerLast(new ReadTimeoutHandler(huggingfaceReadTimeout, TimeUnit.SECONDS))
-                .addHandlerLast(new WriteTimeoutHandler(huggingfaceReadTimeout, TimeUnit.SECONDS)));
-        
+    public WebClient embeddingWebClient() {
         return WebClient.builder()
-            .baseUrl(huggingfaceUrl)
-            .clientConnector(new ReactorClientHttpConnector(httpClient))
+            .baseUrl(embeddingUrl)
             .build();
     }
     
