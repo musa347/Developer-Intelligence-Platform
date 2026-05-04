@@ -126,7 +126,7 @@ public class RetrievalEngine {
                 
                 // Extract payload information
                 Map<String, Object> payload = new HashMap<>();
-                if (point.hasPayload()) {
+                if (point.getPayloadMap() != null && !point.getPayloadMap().isEmpty()) {
                     point.getPayloadMap().forEach((key, value) -> {
                         if (value.hasStringValue()) {
                             payload.put(key, value.getStringValue());

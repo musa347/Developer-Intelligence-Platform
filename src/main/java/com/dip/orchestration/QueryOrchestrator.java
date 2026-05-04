@@ -35,7 +35,7 @@ public class QueryOrchestrator {
         log.info("Using retrieval strategy: {} with topK={}", strategy, topK);
 
         var service = serviceRegistryService.getServiceByCode(request.getServiceCode());
-        List<DocumentChunk> chunks = retrievalEngine.retrieve(
+        List<DocumentChunk> chunks = retrievalEngine.retrieveAsChunks(
                 request.getQuery(), 
                 service.getId(), 
                 strategy,
