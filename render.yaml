@@ -1,0 +1,48 @@
+services:
+  - type: web
+    name: developer-intelligence-platform
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: cloud
+      - key: SERVER_PORT
+        value: 8080
+      - key: QDRANT_PORT
+        value: 6334
+      - key: QDRANT_USE_TLS
+        value: true
+      - key: QDRANT_COLLECTION_NAME
+        value: cpdip-docs
+      - key: GROQ_CHAT_MODEL
+        value: llama-3.1-8b-instant
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_USERNAME
+        sync: false
+      - key: DATABASE_PASSWORD
+        sync: false
+      - key: QDRANT_HOST
+        sync: false
+      - key: QDRANT_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: HUGGINGFACE_API_KEY
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: BASE_URL
+        sync: false
+      - key: MAIL_HOST
+        sync: false
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: APP_BASE_URL
+        sync: false
+    buildCommand: echo "Building with Docker"
