@@ -19,13 +19,19 @@ public class VectorStoreService {
     private String collectionName;
 
     @PostConstruct
-    public void init() throws ExecutionException, InterruptedException {
-        if (!collectionExists()) {
-            System.out.println("Creating Qdrant collection: " + collectionName);
-            createCollection();
-            System.out.println("Collection created successfully with indexes");
-        } else {
-            System.out.println("Collection already exists: " + collectionName);
+    public void init() {
+        try {
+            if (!collectionExists()) {
+                System.out.println("Creating Qdrant collection: " + collectionName);
+                createCollection();
+                System.out.println("Collection created successfully with indexes");
+            } else {
+                System.out.println("Collection already exists: " + collectionName);
+            }
+        } catch (Exception e) {
+            System.err.println("Failed to initialize Qdrant collection: " + e.getMessage());
+            System.err.println("Application will continue but RAG functionality will not be available until Qdrant is configured.");
+            // Don't throw exception - allow application to start
         }
     }
 
@@ -42,7 +48,7 @@ public class VectorStoreService {
         qdrantClient.createCollectionAsync(
                 collectionName,
                 VectorParams.newBuilder()
-                        .setSize(768)
+                        .setSize(1536)
                         .setDistance(Distance.Cosine)
                         .build()
         ).get();
