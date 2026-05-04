@@ -33,6 +33,29 @@ public class WebClientConfig {
     @Value("${huggingface.timeout.read:30}")
     private int huggingfaceReadTimeout;
     
+    @Value("${groq.api.url}")
+    private String groqUrl;
+    
+    @Value("${groq.timeout.connect:10}")
+    private int groqConnectTimeout;
+    
+    @Value("${groq.timeout.read:30}")
+    private int groqReadTimeout;
+    
+    @Bean
+    public WebClient groqWebClient() {
+        HttpClient httpClient = HttpClient.create()
+            .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, groqConnectTimeout * 1000)
+            .responseTimeout(Duration.ofSeconds(groqReadTimeout))
+            .doOnConnected(conn -> conn
+                .addHandlerLast(new ReadTimeoutHandler(groqReadTimeout, TimeUnit.SECONDS))
+                .addHandlerLast(new WriteTimeoutHandler(groqReadTimeout, TimeUnit.SECONDS)));
+        
+        return WebClient.builder()
+            .baseUrl(groqUrl)
+            .clientConnector(new ReactorClientHttpConnector(httpClient))
+            .build();
+    }
     
     @Bean
     public WebClient huggingfaceWebClient() {
