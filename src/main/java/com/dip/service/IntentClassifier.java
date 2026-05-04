@@ -11,7 +11,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class IntentClassifier {
     
-    private final WebClient ollamaWebClient;
+    private final WebClient groqWebClient;
     
     public QueryIntent classifyIntent(String query) {
         String prompt = """
@@ -30,20 +30,23 @@ public class IntentClassifier {
             """.formatted(query);
         
         try {
-            Map<String, Object> response = ollamaWebClient.post()
-                .uri("/api/generate")
+            Map<String, Object> response = groqWebClient.post()
                 .bodyValue(Map.of(
-                    "model", "qwen2.5:1.5b",
-                    "prompt", prompt,
-                    "stream", false,
-                    "options", Map.of("temperature", 0)
+                    "model", "llama-3.1-8b-instant",
+                    "messages", List.of(
+                        Map.of("role", "user", "content", prompt)
+                    ),
+                    "temperature", 0,
+                    "max_tokens", 50
                 ))
                 .retrieve()
                 .bodyToMono(Map.class)
                 .timeout(Duration.ofSeconds(10))
                 .block();
             
-            String intent = ((String) response.get("response")).trim();
+            List<Map<String, Object>> choices = (List<Map<String, Object>>) response.get("choices");
+            Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
+            String intent = ((String) message.get("content")).trim();
             return QueryIntent.valueOf(intent);
         } catch (Exception e) {
             return QueryIntent.CONCEPTUAL_EXPLANATION;

@@ -12,7 +12,6 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class EmbeddingService {
     
-    private final WebClient ollamaWebClient;
     private final WebClient huggingfaceWebClient;
     
     @Value("${huggingface.api.key:}")
@@ -22,7 +21,7 @@ public class EmbeddingService {
     private String embeddingModel;
     
     public float[] generateEmbedding(String text) {
-        return generateEmbeddingWithOllama(text);
+        return generateEmbeddingWithHuggingFace(text);
     }
     
     @SuppressWarnings("unchecked")
@@ -44,24 +43,7 @@ public class EmbeddingService {
         return convertToFloatArray(embedding);
     }
     
-    @SuppressWarnings("unchecked")
-    private float[] generateEmbeddingWithOllama(String text) {
-        Map<String, Object> response = (Map<String, Object>) ollamaWebClient.post()
-            .uri("/api/embeddings")
-            .bodyValue(Map.of(
-                "model", "nomic-embed-text",
-                "prompt", text
-            ))
-            .retrieve()
-            .bodyToMono(Map.class)
-            .timeout(Duration.ofSeconds(30))
-            .block();
         
-        List<Double> embedding = (List<Double>) response.get("embedding");
-        
-        return convertToFloatArray(embedding);
-    }
-    
     private float[] convertToFloatArray(List<Double> embedding) {
         float[] result = new float[embedding.size()];
         for (int i = 0; i < embedding.size(); i++) {
