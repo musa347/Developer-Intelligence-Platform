@@ -8,9 +8,9 @@ services:
       - key: PORT
         value: 8080
       - key: QDRANT_PORT
-        value: 6333
+        value: 6334
       - key: QDRANT_USE_TLS
-        value: false
+        value: true
       - key: QDRANT_COLLECTION_NAME
         value: cpdip-docs
       - key: EMBEDDING_MODEL
