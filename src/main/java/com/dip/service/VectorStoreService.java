@@ -160,7 +160,6 @@ public class VectorStoreService {
                         .setLimit(limit)
                         .setFilter(filterBuilder.build())
                         .setWithPayload(WithPayloadSelector.newBuilder().setEnable(true).build())
-                        .setWithVector(WithVectorSelector.newBuilder().setEnable(true).build())
                         .build()
         ).get();
     }

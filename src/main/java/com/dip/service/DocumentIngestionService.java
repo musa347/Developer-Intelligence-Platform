@@ -94,7 +94,7 @@ public class DocumentIngestionService {
                 // Create comprehensive metadata
                 Map<String, Object> payload = new HashMap<>();
                 payload.put("service_id", service.getId());
-                payload.put("service_code", service.getCode());
+                payload.put("service_code", service.getServiceCode());
                 payload.put("service_name", service.getName());
                 payload.put("artifact_id", artifact.getId());
                 payload.put("chunk_id", String.valueOf(chunk.getId()));
