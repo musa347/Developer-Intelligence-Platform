@@ -36,7 +36,7 @@ services:
       - key: GOOGLE_CLIENT_SECRET
         sync: false
       - key: BASE_URL
-        sync: false
+        value: https://developer-intelligence-platform.onrender.com
       - key: MAIL_HOST
         sync: false
       - key: MAIL_USERNAME
@@ -44,5 +44,5 @@ services:
       - key: MAIL_PASSWORD
         sync: false
       - key: APP_BASE_URL
-        sync: false
+        value: https://developer-intelligence-platform.onrender.com
     buildCommand: echo "Building with Docker"
