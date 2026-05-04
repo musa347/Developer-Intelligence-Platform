@@ -25,6 +25,8 @@ public class DocumentChunk {
     
     private String vectorId;
     
+    private Integer sectionNumber;
+    
     @Column(columnDefinition = "TEXT")
     private String metadata;
 }
