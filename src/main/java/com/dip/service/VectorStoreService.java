@@ -131,6 +131,10 @@ public class VectorStoreService {
     public List<ScoredPoint> searchSimilarWithScores(float[] queryVector, Long serviceId, int limit, com.dip.domain.ChunkType chunkTypeFilter)
             throws ExecutionException, InterruptedException {
 
+        System.out.println("[QDRANT DEBUG] Search parameters - serviceId: " + serviceId + ", limit: " + limit + ", chunkTypeFilter: " + chunkTypeFilter);
+        System.out.println("[QDRANT DEBUG] Query vector dimensions: " + queryVector.length);
+        System.out.println("[QDRANT DEBUG] Collection name: " + collectionName);
+
         Filter.Builder filterBuilder = Filter.newBuilder()
                 .addMust(Condition.newBuilder()
                         .setField(FieldCondition.newBuilder()
@@ -140,6 +144,7 @@ public class VectorStoreService {
                         .build());
 
         if (chunkTypeFilter != null) {
+            System.out.println("[QDRANT DEBUG] Adding chunk_type filter: " + chunkTypeFilter.name());
             filterBuilder.addMust(Condition.newBuilder()
                     .setField(FieldCondition.newBuilder()
                             .setKey("chunk_type")
@@ -153,14 +158,29 @@ public class VectorStoreService {
             queryVectorList.add(f);
         }
 
-        return qdrantClient.searchAsync(
-                SearchPoints.newBuilder()
-                        .setCollectionName(collectionName)
-                        .addAllVector(queryVectorList)
-                        .setLimit(limit)
-                        .setFilter(filterBuilder.build())
-                        .setWithPayload(WithPayloadSelector.newBuilder().setEnable(true).build())
-                        .build()
-        ).get();
+        try {
+            List<ScoredPoint> results = qdrantClient.searchAsync(
+                    SearchPoints.newBuilder()
+                            .setCollectionName(collectionName)
+                            .addAllVector(queryVectorList)
+                            .setLimit(limit)
+                            .setFilter(filterBuilder.build())
+                            .setWithPayload(WithPayloadSelector.newBuilder().setEnable(true).build())
+                            .build()
+            ).get();
+            
+            System.out.println("[QDRANT DEBUG] Search completed. Found " + results.size() + " results");
+            for (int i = 0; i < Math.min(results.size(), 3); i++) {
+                ScoredPoint point = results.get(i);
+                System.out.println("[QDRANT DEBUG] Result " + i + ": score=" + point.getScore() + 
+                                 ", payloadKeys=" + point.getPayloadMap().keySet());
+            }
+            
+            return results;
+        } catch (Exception e) {
+            System.err.println("[QDRANT ERROR] Search failed: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
     }
 }

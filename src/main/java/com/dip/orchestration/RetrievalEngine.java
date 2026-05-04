@@ -30,18 +30,19 @@ public class RetrievalEngine {
             RetrievalStrategy strategy,
             int topK) throws ExecutionException, InterruptedException {
         
-        log.debug("Starting retrieval for query: {}, strategy: {}, topK: {}", query, strategy, topK);
+        log.info("Starting retrieval for query: {}, strategy: {}, topK: {}, serviceId: {}", query, strategy, topK, serviceId);
         
         // Apply PII masking to query for security
         String maskedQuery = piiMaskingService.maskPII(query);
+        log.info("Masked query: {}", maskedQuery);
         
         // Generate query embedding
         float[] queryEmbedding = embeddingService.generateEmbedding(maskedQuery);
-        log.debug("Generated query embedding with {} dimensions", queryEmbedding.length);
+        log.info("Generated query embedding with {} dimensions", queryEmbedding.length);
         
         // Get chunk type filter based on strategy
         ChunkType filterType = getChunkTypeFilter(strategy);
-        log.debug("Using chunk type filter: {}", filterType);
+        log.info("Using chunk type filter: {}", filterType);
         
         // Search for similar vectors
         List<ScoredPoint> scoredPoints = vectorStoreService.searchSimilarWithScores(
@@ -51,21 +52,35 @@ public class RetrievalEngine {
                 filterType
         );
         
-        log.debug("Found {} raw scored points", scoredPoints.size());
+        log.warn("Found {} raw scored points from Qdrant search", scoredPoints.size());
         
         // Convert to retrieval results and apply additional filtering
         List<RetrievalResult> results = convertToRetrievalResults(scoredPoints);
+        log.info("Converted {} scored points to {} retrieval results", scoredPoints.size(), results.size());
         
         // Apply strategy-specific filtering and ranking
+        List<RetrievalResult> beforeFiltering = new ArrayList<>(results);
         results = applyStrategySpecificFiltering(results, strategy, query);
+        log.info("After strategy-specific filtering: {} -> {} results", beforeFiltering.size(), results.size());
         
         // Sort by score and limit to requested topK
+        List<RetrievalResult> beforeLimit = new ArrayList<>(results);
         results = results.stream()
                 .sorted((a, b) -> Float.compare(b.getScore(), a.getScore()))
                 .limit(topK)
                 .collect(Collectors.toList());
         
-        log.debug("Returning {} filtered results", results.size());
+        log.warn("Final result: {} -> {} results after applying topK limit", beforeLimit.size(), results.size());
+        
+        // Log the final results for debugging
+        if (results.isEmpty()) {
+            log.error("NO RESULTS FOUND - Query: {}, ServiceId: {}, Strategy: {}, FilterType: {}", 
+                     query, serviceId, strategy, filterType);
+        } else {
+            log.info("Found {} results with scores: {}", results.size(), 
+                    results.stream().map(r -> String.format("%.3f", r.getScore())).collect(Collectors.toList()));
+        }
+        
         return results;
     }
     
