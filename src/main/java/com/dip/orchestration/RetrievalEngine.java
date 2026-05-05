@@ -121,14 +121,9 @@ public class RetrievalEngine {
     }
     
     private ChunkType getChunkTypeFilter(RetrievalStrategy strategy) {
-        return switch (strategy) {
-            case DOCUMENTATION -> ChunkType.CONCEPT;
-            case ENDPOINT_DRILLDOWN -> ChunkType.ENDPOINT;
-            case ARCHITECTURE -> ChunkType.ARCHITECTURE;
-            case TROUBLESHOOTING -> ChunkType.ERROR;
-            case VERSION_DIFF -> ChunkType.CONCEPT;
-            default -> null; // No filtering
-        };
+        // Remove ChunkType filtering to allow all chunk types
+        // The strategy-specific filtering will happen in applyStrategySpecificFiltering
+        return null;
     }
     
     private List<RetrievalResult> convertToRetrievalResults(List<ScoredPoint> scoredPoints) {
