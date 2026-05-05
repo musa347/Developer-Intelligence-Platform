@@ -34,6 +34,10 @@ public class LLMService {
     }
     
     public String generateAnswer(String serviceName, String query, String context) {
+        System.out.println("[LLM DEBUG] Context length: " + context.length());
+        System.out.println("[LLM DEBUG] Context is empty: " + context.isEmpty());
+        System.out.println("[LLM DEBUG] Context preview: " + (context.length() > 200 ? context.substring(0, 200) + "..." : context));
+        
         if (context.isEmpty()) {
             return "This information is not documented in the available documentation for " + serviceName + ".";
         }
@@ -46,6 +50,9 @@ public class LLMService {
             "Answer this question using ONLY the context below. Be brief and concise.\n\nContext: %s\n\nQuestion: %s\n\nAnswer:",
             context, query
         );
+        
+        System.out.println("[LLM DEBUG] Prompt length: " + prompt.length());
+        System.out.println("[LLM DEBUG] Full prompt: " + (prompt.length() > 500 ? prompt.substring(0, 500) + "..." : prompt));
         
         Map<String, Object> requestBody = Map.of(
             "model", llmModel,

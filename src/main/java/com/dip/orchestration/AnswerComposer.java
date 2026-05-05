@@ -16,6 +16,8 @@ public class AnswerComposer {
     private final LLMService llmService;
     
     public String compose(String query, List<DocumentChunk> chunks, String serviceName) {
+        System.out.println("[ANSWER COMPOSER DEBUG] Number of chunks received: " + chunks.size());
+        
         if (chunks.isEmpty()) {
             return "No relevant documentation found for this query.";
         }
@@ -23,14 +25,23 @@ public class AnswerComposer {
         StringBuilder context = new StringBuilder();
         int charBudget = 8000;
         
-        for (DocumentChunk chunk : chunks) {
+        for (int i = 0; i < chunks.size(); i++) {
+            DocumentChunk chunk = chunks.get(i);
             String content = chunk.getContent();
-            if (context.length() + content.length() > charBudget) break;
+            System.out.println("[ANSWER COMPOSER DEBUG] Chunk " + i + " length: " + content.length() + 
+                             ", section: " + chunk.getSection() + 
+                             ", type: " + chunk.getChunkType());
+            
+            if (context.length() + content.length() > charBudget) {
+                System.out.println("[ANSWER COMPOSER DEBUG] Char budget reached, stopping at chunk " + i);
+                break;
+            }
             if (context.length() > 0) context.append("\n\n");
             context.append(content);
         }
         
         String contextStr = context.toString();
+        System.out.println("[ANSWER COMPOSER DEBUG] Final context length: " + contextStr.length());
         
         try {
             return llmService.generateAnswer(serviceName, query, contextStr);
