@@ -151,6 +151,8 @@ public class VectorStoreService {
                             .setMatch(Match.newBuilder().setKeyword(chunkTypeFilter.name()).build())
                             .build())
                     .build());
+        } else {
+            System.out.println("[QDRANT DEBUG] No chunk_type filter applied - searching all chunk types");
         }
 
         List<Float> queryVectorList = new ArrayList<>();
