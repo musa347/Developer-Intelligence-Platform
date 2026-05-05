@@ -57,6 +57,7 @@ public class DocumentChunkingService {
         String currentTitle = "Introduction";
         int sectionNumber = 0;
         boolean inCodeBlock = false;
+        int headingLevel = 0;
 
         for (String line : lines) {
             line = line.trim();
@@ -64,15 +65,23 @@ public class DocumentChunkingService {
             // Skip code blocks
             if (line.startsWith("```")) {
                 inCodeBlock = !inCodeBlock;
+                if (!inCodeBlock) {
+                    currentSection.append("```\n");
+                } else {
+                    currentSection.append("```\n");
+                }
                 continue;
             }
             if (inCodeBlock) {
+                currentSection.append(line).append("\n");
                 continue;
             }
 
             if (isHeading(line)) {
-                // Save previous section if it has content
-                if (currentSection.length() > 0) {
+                int newHeadingLevel = getHeadingLevel(line);
+                
+                // Save previous section if it has meaningful content
+                if (currentSection.length() > 50) { // Require minimum content length
                     chunks.add(createChunk(
                             artifactId,
                             currentTitle,
@@ -82,15 +91,23 @@ public class DocumentChunkingService {
                     ));
                     sectionNumber++;
                 }
-                currentTitle = extractTitle(line);
-                currentSection = new StringBuilder();
+                
+                // For subheadings, append to current section instead of creating new chunk
+                if (newHeadingLevel <= 2) { // Only create new chunks for main sections (# and ##)
+                    currentTitle = extractTitle(line);
+                    currentSection = new StringBuilder();
+                    headingLevel = newHeadingLevel;
+                } else {
+                    // Add subheading to current section content
+                    currentSection.append("\n").append(line).append("\n");
+                }
             } else if (!line.isEmpty()) {
                 currentSection.append(line).append("\n");
             }
         }
 
-        // Add the last section
-        if (currentSection.length() > 0) {
+        // Add the last section if it has meaningful content
+        if (currentSection.length() > 50) {
             chunks.add(createChunk(
                     artifactId,
                     currentTitle,
@@ -170,6 +187,14 @@ public class DocumentChunkingService {
         }
 
         return false;
+    }
+
+    private int getHeadingLevel(String line) {
+        if (line.startsWith("####")) return 4;
+        if (line.startsWith("###")) return 3;
+        if (line.startsWith("##")) return 2;
+        if (line.startsWith("#")) return 1;
+        return 0;
     }
 
     private String extractTitle(String line) {
