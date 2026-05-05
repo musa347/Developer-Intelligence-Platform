@@ -21,18 +21,16 @@ public class AnswerComposer {
         }
         
         StringBuilder context = new StringBuilder();
-        int maxChunks = Math.min(chunks.size(), 2);
+        int charBudget = 8000;
         
-        for (int i = 0; i < maxChunks; i++) {
-            DocumentChunk chunk = chunks.get(i);
-            context.append(chunk.getContent());
-            if (i < maxChunks - 1) context.append("\n\n");
+        for (DocumentChunk chunk : chunks) {
+            String content = chunk.getContent();
+            if (context.length() + content.length() > charBudget) break;
+            if (context.length() > 0) context.append("\n\n");
+            context.append(content);
         }
         
         String contextStr = context.toString();
-        if (contextStr.length() > 2000) {
-            contextStr = contextStr.substring(0, 2000) + "...";
-        }
         
         try {
             return llmService.generateAnswer(serviceName, query, contextStr);
