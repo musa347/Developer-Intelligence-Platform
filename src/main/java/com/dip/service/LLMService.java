@@ -22,7 +22,7 @@ public class LLMService {
         @Value("${llm.api.key:}") String llmApiKey,
         @Value("${llm.chat.model}") String llmModel,
         @Value("${llm.temperature:0.1}") double temperature,
-        @Value("${llm.max.tokens:512}") int maxTokens,
+        @Value("${llm.max.tokens:2048}") int maxTokens,
         WebClient llmWebClient
     ) {
         this.llmApiUrl = llmApiUrl;
