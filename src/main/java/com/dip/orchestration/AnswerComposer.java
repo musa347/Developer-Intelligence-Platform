@@ -31,6 +31,8 @@ public class AnswerComposer {
             System.out.println("[ANSWER COMPOSER DEBUG] Chunk " + i + " length: " + content.length() + 
                              ", section: " + chunk.getSection() + 
                              ", type: " + chunk.getChunkType());
+            System.out.println("[ANSWER COMPOSER DEBUG] Content preview: " + 
+                             (content.length() > 150 ? content.substring(0, 150) + "..." : content));
             
             if (context.length() + content.length() > charBudget) {
                 System.out.println("[ANSWER COMPOSER DEBUG] Char budget reached, stopping at chunk " + i);
