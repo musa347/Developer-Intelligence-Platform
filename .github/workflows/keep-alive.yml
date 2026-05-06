@@ -13,9 +13,7 @@ jobs:
       - name: Ping Developer Intelligence Platform
         run: |
           echo "Pinging Developer Intelligence Platform..."
-          curl -f https://developer-intelligence-platform.onrender.com/api/services || \
-          curl -f https://developer-intelligence-platform.onrender.com/ || \
-          echo "DIP Backend ping failed - service may be starting up"
+          curl -f https://developer-intelligence-platform.onrender.com/api/health || echo "DIP Backend ping failed - service may be starting up"
           
       - name: Ping CX RAG Backend
         run: |
@@ -30,4 +28,5 @@ jobs:
       - name: Summary
         run: |
           echo "Keep-alive pings completed at $(date)"
+
 
