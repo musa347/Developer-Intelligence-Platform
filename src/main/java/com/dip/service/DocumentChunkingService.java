@@ -35,7 +35,7 @@ public class DocumentChunkingService {
         log.debug("Starting document chunking for type: {}, content length: {}", documentType, content.length());
 
         switch (documentType) {
-            case MARKDOWN, README:
+            case MARKDOWN, README, MANUAL, RUNBOOK, ARCHITECTURE:
                 chunks = chunkMarkdownDocument(artifactId, content);
                 break;
             case OPENAPI, SWAGGER:
