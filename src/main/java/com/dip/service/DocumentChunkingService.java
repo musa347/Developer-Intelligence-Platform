@@ -252,7 +252,8 @@ public class DocumentChunkingService {
         DocumentChunk chunk = new DocumentChunk();
         chunk.setVectorId(UUID.randomUUID().toString());
         chunk.setSection(title);
-        chunk.setContent(content);
+        chunk.setContent(content); // Transient field, not persisted to DB
+        chunk.setContentLength(content.length()); // Store length as metadata
         chunk.setChunkType(chunkType);
         chunk.setSectionNumber(sectionNumber);
         
