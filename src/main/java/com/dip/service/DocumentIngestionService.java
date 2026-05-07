@@ -58,24 +58,29 @@ public class DocumentIngestionService {
         com.dip.domain.Service service = serviceRegistryService.getServiceByCode(serviceCode);
         log.info("[DEBUG] Found service: {} (ID: {})", service.getName(), service.getId());
 
+        // Create artifact with metadata only (content is transient)
         DocumentArtifact artifact = new DocumentArtifact();
         artifact.setService(service);
         artifact.setDocumentType(documentType);
         artifact.setVersion(version);
         artifact.setSourceReference(sourceReference);
         artifact.setEffectiveDate(LocalDate.now());
-        artifact.setContent(content);
+        artifact.setContent(content); // Set for processing, but won't be persisted
+        artifact.setContentLength(content.length());
+        
+        // Save metadata only to PostgreSQL
         artifact = artifactRepository.save(artifact);
-        log.info("[DEBUG] Saved artifact with ID: {}", artifact.getId());
+        log.info("[DEBUG] Saved artifact metadata with ID: {} (content NOT stored in PostgreSQL)", artifact.getId());
 
         // Use improved chunking service
         List<DocumentChunk> chunks = documentChunkingService.chunkDocument(artifact.getId().toString(), documentType, content);
         
-        // Set artifact reference for all chunks
+        // Set artifact reference and chunk count
         for (DocumentChunk chunk : chunks) {
             chunk.setArtifact(artifact);
         }
         
+        artifact.setChunkCount(chunks.size());
         chunks = chunkRepository.saveAll(chunks);
         log.info("[DEBUG] Saved {} chunks to database", chunks.size());
 
@@ -91,7 +96,7 @@ public class DocumentIngestionService {
                 float[] embedding = embeddingService.generateEmbedding(maskedContent);
                 log.info("[DEBUG] Generated embedding with {} dimensions", embedding.length);
 
-                // Create comprehensive metadata
+                // Create comprehensive metadata - content is stored HERE in Qdrant
                 Map<String, Object> payload = new HashMap<>();
                 payload.put("service_id", service.getId());
                 payload.put("service_code", service.getServiceCode());
@@ -105,13 +110,14 @@ public class DocumentIngestionService {
                 payload.put("version", version);
                 payload.put("source_reference", sourceReference);
                 payload.put("effective_date", artifact.getEffectiveDate().toString());
+                payload.put("content", maskedContent); // FULL CONTENT stored in Qdrant
                 payload.put("content_length", maskedContent.length());
                 payload.put("has_pii", !maskedContent.equals(chunk.getContent())); // Flag if PII was found
                 
                 log.info("[DEBUG] Upserting vector to Qdrant with ID: {}, payload keys: {}", chunk.getVectorId(), payload.keySet());
 
                 vectorStoreService.upsertVector(chunk.getVectorId(), embedding, payload);
-                log.info("[DEBUG] Successfully upserted vector {}", chunk.getVectorId());
+                log.info("[DEBUG] Successfully upserted vector {} with full content to Qdrant", chunk.getVectorId());
             } catch (Exception e) {
                 log.error("[DEBUG] FAILED to process chunk {}: {}", chunk.getVectorId(), e.getMessage(), e);
                 continue;
