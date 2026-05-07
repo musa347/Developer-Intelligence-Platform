@@ -26,8 +26,14 @@ public class DocumentArtifact {
     private LocalDate effectiveDate;
     private LocalDateTime ingestionTimestamp;
     
-    @Column(columnDefinition = "TEXT")
+    // Content is NOT stored in PostgreSQL - only in Qdrant vector store
+    // This field is transient and only used during ingestion
+    @Transient
     private String content;
+    
+    // Metadata about the content
+    private Integer contentLength;
+    private Integer chunkCount;
     
     @PrePersist
     protected void onCreate() {
