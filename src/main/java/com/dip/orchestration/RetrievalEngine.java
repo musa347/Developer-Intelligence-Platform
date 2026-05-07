@@ -92,32 +92,29 @@ public class RetrievalEngine {
         
         List<RetrievalResult> results = retrieve(query, serviceId, strategy, topK);
         
-        // Convert RetrievalResults to DocumentChunks
-        List<Long> chunkIds = results.stream()
-                .map(RetrievalResult::getChunkId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
-        
-        if (chunkIds.isEmpty()) {
+        if (results.isEmpty()) {
             return new ArrayList<>();
         }
         
-        // Retrieve chunks and preserve order/score information
-        List<DocumentChunk> chunks = chunkRepository.findAllById(chunkIds);
+        // Convert RetrievalResults to DocumentChunks
+        // Content is now in Qdrant payload, not in database
+        List<DocumentChunk> chunks = new ArrayList<>();
         
-        // Sort chunks according to retrieval results order
-        Map<Long, DocumentChunk> chunkMap = chunks.stream()
-                .collect(Collectors.toMap(DocumentChunk::getId, chunk -> chunk));
-        
-        List<DocumentChunk> orderedChunks = new ArrayList<>();
         for (RetrievalResult result : results) {
-            DocumentChunk chunk = chunkMap.get(result.getChunkId());
-            if (chunk != null) {
-                orderedChunks.add(chunk);
+            if (result.getChunkId() != null) {
+                // Get chunk metadata from database
+                Optional<DocumentChunk> chunkOpt = chunkRepository.findById(result.getChunkId());
+                if (chunkOpt.isPresent()) {
+                    DocumentChunk chunk = chunkOpt.get();
+                    // Set content from Qdrant payload (it's @Transient in the entity)
+                    chunk.setContent(result.getContent());
+                    chunks.add(chunk);
+                }
             }
         }
         
-        return orderedChunks;
+        log.info("Retrieved {} chunks with content from Qdrant", chunks.size());
+        return chunks;
     }
     
     private ChunkType getChunkTypeFilter(RetrievalStrategy strategy) {
