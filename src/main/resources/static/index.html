@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - CP-DIP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #0f172a; }
+    </style>
+</head>
+<body class="text-gray-200 flex items-center justify-center min-h-screen">
+    <div class="bg-slate-800 rounded-lg p-8 w-full max-w-md border border-slate-700">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-blue-400 mb-2">CP-DIP</h1>
+            <p class="text-sm text-gray-400">Core Payments Developer Intelligence Platform</p>
+        </div>
+
+        <form id="loginForm" class="space-y-4">
+            <div>
+                <label class="block text-sm text-gray-400 mb-2">Username</label>
+                <input 
+                    type="text" 
+                    id="username" 
+                    class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-gray-200 focus:outline-none focus:border-blue-500" 
+                    required
+                    autocomplete="username"
+                >
+            </div>
+
+            <div>
+                <label class="block text-sm text-gray-400 mb-2">Password</label>
+                <input 
+                    type="password" 
+                    id="password" 
+                    class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-gray-200 focus:outline-none focus:border-blue-500" 
+                    required
+                    autocomplete="current-password"
+                >
+            </div>
+
+            <div id="errorMsg" class="hidden text-red-400 text-sm"></div>
+
+            <button 
+                type="submit" 
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-medium transition"
+            >
+                Login
+            </button>
+        </form>
+
+        <div class="mt-6 text-center text-sm text-gray-400">
+            <p>Default credentials:</p>
+            <p class="mt-2">Admin: <span class="text-blue-400">admin / admin123</span></p>
+            <p>User: <span class="text-blue-400">user / user123</span></p>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080/api';
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const errorMsg = document.getElementById('errorMsg');
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Logging in...';
+            errorMsg.classList.add('hidden');
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    sessionStorage.setItem('username', data.username);
+                    sessionStorage.setItem('role', data.role);
+                    window.location.href = '/app.html';
+                } else {
+                    const error = await response.json();
+                    errorMsg.textContent = error.error || 'Invalid credentials';
+                    errorMsg.classList.remove('hidden');
+                }
+            } catch (error) {
+                errorMsg.textContent = 'Login failed. Please try again.';
+                errorMsg.classList.remove('hidden');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Login';
+            }
+        });
+    </script>
+</body>
+</html>

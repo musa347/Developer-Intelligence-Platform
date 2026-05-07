@@ -1,0 +1,52 @@
+services:
+  - type: web
+    name: developer-intelligence-platform
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: PORT
+        value: 8080
+      - key: QDRANT_PORT
+        value: 6334
+      - key: QDRANT_USE_TLS
+        value: true
+      - key: QDRANT_COLLECTION_NAME
+        value: cpdip-docs
+      - key: EMBEDDING_MODEL
+        value: text-embedding-3-small
+      - key: LLM_MODEL
+        value: llama-3.1-8b-instant
+      - key: LLM_TEMPERATURE
+        value: 0.1
+      - key: LLM_MAX_TOKENS
+        value: 512
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_USERNAME
+        sync: false
+      - key: DATABASE_PASSWORD
+        sync: false
+      - key: QDRANT_HOST
+        sync: false
+      - key: QDRANT_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: BASE_URL
+        value: https://developer-intelligence-platform.onrender.com
+      - key: MAIL_HOST
+        sync: false
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: APP_BASE_URL
+        value: https://developer-intelligence-platform.onrender.com
+    buildCommand: echo "Building with Docker"

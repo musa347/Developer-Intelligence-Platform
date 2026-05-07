@@ -1,0 +1,33 @@
+name: Keep Services Alive
+
+on:
+  schedule:
+    # Run every 10 minutes
+    - cron: '*/1 * * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Developer Intelligence Platform
+        run: |
+          echo "Pinging Developer Intelligence Platform..."
+          curl -s https://developer-intelligence-platform-xivl.onrender.com/api/health || echo "DIP Backend ping failed - service may be starting up"
+          
+      - name: Ping CX RAG Backend
+        run: |
+          echo "Pinging CX RAG Backend..."
+          curl -s https://cx-rag-system.onrender.com/api/health || echo "CX RAG Backend ping failed"
+          
+      - name: Ping Streamlit Frontend
+        run: |
+          echo "Pinging Streamlit Frontend..."
+          curl -s https://nibss-dev.streamlit.app || echo "Streamlit ping failed"
+          
+      - name: Summary
+        run: |
+          echo "Keep-alive pings completed at $(date)"
+
+
+
