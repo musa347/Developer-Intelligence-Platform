@@ -71,6 +71,10 @@ public class DocumentIngestionService {
         // Save artifact with content to PostgreSQL
         artifact = artifactRepository.save(artifact);
         log.info("[DEBUG] Saved artifact with content to PostgreSQL with ID: {}", artifact.getId());
+        log.info("[DEBUG] Artifact content length: {}, content preview: {}", 
+                artifact.getContent() != null ? artifact.getContent().length() : 0,
+                artifact.getContent() != null && artifact.getContent().length() > 50 ? 
+                        artifact.getContent().substring(0, 50) + "..." : artifact.getContent());
 
         // Use improved chunking service
         List<DocumentChunk> chunks = documentChunkingService.chunkDocument(artifact.getId().toString(), documentType, content);
@@ -83,6 +87,16 @@ public class DocumentIngestionService {
         artifact.setChunkCount(chunks.size());
         chunks = chunkRepository.saveAll(chunks);
         log.info("[DEBUG] Saved {} chunks to database", chunks.size());
+        
+        // Debug: Check if content is actually saved
+        for (int j = 0; j < Math.min(chunks.size(), 3); j++) {
+            DocumentChunk chunk = chunks.get(j);
+            log.info("[DEBUG] Chunk {} content length: {}, content preview: {}", 
+                    chunk.getId(), 
+                    chunk.getContent() != null ? chunk.getContent().length() : 0,
+                    chunk.getContent() != null && chunk.getContent().length() > 50 ? 
+                            chunk.getContent().substring(0, 50) + "..." : chunk.getContent());
+        }
 
         for (int i = 0; i < chunks.size(); i++) {
             DocumentChunk chunk = chunks.get(i);
