@@ -47,8 +47,17 @@ public class LLMService {
     
     private String generateAnswerWithLLM(String serviceName, String query, String context) {
         String prompt = String.format(
-            "Answer this question using ONLY the context below. Be brief and concise.\n\nContext: %s\n\nQuestion: %s\n\nAnswer:",
-            context, query
+            "You are a technical documentation assistant for %s.\n\n" +
+            "INSTRUCTIONS:\n" +
+            "- Answer the question using ONLY the information provided in the context below\n" +
+            "- Be specific, accurate, and concise\n" +
+            "- If the context contains the answer, provide it clearly\n" +
+            "- Include relevant details like endpoints, codes, or procedures\n" +
+            "- Do NOT say the information is not in the context if it clearly is\n\n" +
+            "CONTEXT:\n%s\n\n" +
+            "QUESTION: %s\n\n" +
+            "ANSWER:",
+            serviceName, context, query
         );
         
         System.out.println("[LLM DEBUG] Prompt length: " + prompt.length());
@@ -57,6 +66,7 @@ public class LLMService {
         Map<String, Object> requestBody = Map.of(
             "model", llmModel,
             "messages", List.of(
+                Map.of("role", "system", "content", "You are a helpful technical documentation assistant. Answer questions accurately based on the provided context."),
                 Map.of("role", "user", "content", prompt)
             ),
             "max_tokens", maxTokens,
@@ -85,6 +95,7 @@ public class LLMService {
             
             return "No response from LLM";
         } catch (Exception e) {
+            System.err.println("[LLM ERROR] " + e.getMessage());
             return "Error: LLM API unavailable. Please check your API key or try again.";
         }
     }
