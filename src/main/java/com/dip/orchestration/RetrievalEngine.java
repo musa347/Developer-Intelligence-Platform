@@ -97,23 +97,25 @@ public class RetrievalEngine {
         }
         
         // Convert RetrievalResults to DocumentChunks
-        // Content is now in Qdrant payload, not in database
+        // Content is now available from both PostgreSQL and Qdrant payload
         List<DocumentChunk> chunks = new ArrayList<>();
         
         for (RetrievalResult result : results) {
             if (result.getChunkId() != null) {
-                // Get chunk metadata from database
+                // Get chunk with content from database
                 Optional<DocumentChunk> chunkOpt = chunkRepository.findById(result.getChunkId());
                 if (chunkOpt.isPresent()) {
                     DocumentChunk chunk = chunkOpt.get();
-                    // Set content from Qdrant payload (it's @Transient in the entity)
-                    chunk.setContent(result.getContent());
+                    // Content is now persisted in PostgreSQL, but we can also use Qdrant content as fallback
+                    if (chunk.getContent() == null || chunk.getContent().isEmpty()) {
+                        chunk.setContent(result.getContent()); // Fallback to Qdrant content
+                    }
                     chunks.add(chunk);
                 }
             }
         }
         
-        log.info("Retrieved {} chunks with content from Qdrant", chunks.size());
+        log.info("Retrieved {} chunks with content from PostgreSQL (Qdrant as fallback)", chunks.size());
         return chunks;
     }
     

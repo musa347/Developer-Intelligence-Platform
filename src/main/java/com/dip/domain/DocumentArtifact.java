@@ -26,9 +26,8 @@ public class DocumentArtifact {
     private LocalDate effectiveDate;
     private LocalDateTime ingestionTimestamp;
     
-    // Content is NOT stored in PostgreSQL - only in Qdrant vector store
-    // This field is transient and only used during ingestion
-    @Transient
+    // Content is stored in PostgreSQL for retrieval
+    @Column(columnDefinition = "TEXT")
     private String content;
     
     // Metadata about the content
