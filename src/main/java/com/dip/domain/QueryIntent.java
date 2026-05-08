@@ -1,0 +1,11 @@
+package com.dip.domain;
+
+public enum QueryIntent {
+    CONCEPTUAL_EXPLANATION,
+    ARCHITECTURAL_OVERVIEW,
+    ENDPOINT_LOOKUP,
+    INTEGRATION_GUIDANCE,
+    ERROR_EXPLANATION,
+    CHANGE_HISTORY,
+    LOG_ANALYSIS
+}

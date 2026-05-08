@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CP-DIP - Developer Intelligence Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <style>
+        body { background: #0f172a; }
+        .sidebar { background: #1e293b; border-right: 1px solid #334155; }
+        .service-item { transition: all 0.2s; }
+        .service-item:hover { background: #334155; }
+        .source-card { background: #1e293b; border: 1px solid #334155; }
+        .query-input { background: #1e293b; border: 1px solid #334155; color: #e2e8f0; }
+        .query-input:focus { outline: none; border-color: #3b82f6; }
+        .confidence-high { color: #10b981; }
+        .confidence-medium { color: #f59e0b; }
+        .confidence-low { color: #ef4444; }
+        .spinner { border: 2px solid #334155; border-top: 2px solid #3b82f6; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="text-gray-200">
+    <div class="flex flex-col h-screen">
+        <!-- Header -->
+        <header class="bg-slate-800 border-b border-slate-700 px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-2xl font-bold text-blue-400">CP-DIP</h1>
+                    <p class="text-sm text-gray-400">Core Payments Developer Intelligence Platform</p>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm text-gray-400">User:</span>
+                        <input type="text" id="usernameInput" placeholder="Enter username" class="bg-slate-700 border border-slate-600 rounded px-3 py-1 text-sm text-gray-200" value="admin">
+                        <span id="userRole" class="text-xs px-2 py-1 rounded bg-blue-600 text-white">ADMIN</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="flex flex-1 overflow-hidden">
+            <!-- Left Sidebar -->
+            <aside class="sidebar w-64 overflow-y-auto p-4">
+                <div class="mb-6">
+                    <h2 class="text-lg font-semibold mb-3 text-gray-300">🔍 Services</h2>
+                    <div id="serviceList" class="space-y-2">
+                        <div class="text-sm text-gray-500">Loading services...</div>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <button onclick="showUploadModal()" id="uploadBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+                        📤 Upload Document
+                    </button>
+                </div>
+
+                <div class="mb-6">
+                    <button onclick="showServiceModal()" id="addServiceBtn" class="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+                        ➕ Add Service
+                    </button>
+                </div>
+
+                <div>
+                    <h2 class="text-lg font-semibold mb-3 text-gray-300">📊 Quick Stats</h2>
+                    <div class="text-sm space-y-2">
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">Services:</span>
+                            <span id="statsServices" class="text-blue-400">-</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">Documents:</span>
+                            <span id="statsDocs" class="text-blue-400">-</span>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Content -->
+            <main class="flex-1 overflow-y-auto p-6">
+                <div class="max-w-4xl mx-auto">
+                    <!-- Service Selector -->
+                    <div class="bg-slate-800 rounded-lg p-4 mb-6 border border-slate-700">
+                        <div class="flex gap-4">
+                            <div class="flex-1">
+                                <label class="block text-sm text-gray-400 mb-2">Service</label>
+                                <select id="serviceSelect" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-gray-200">
+                                    <option value="">Select a service...</option>
+                                </select>
+                            </div>
+                            <div class="w-48">
+                                <label class="block text-sm text-gray-400 mb-2">Version</label>
+                                <select id="versionSelect" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-gray-200">
+                                    <option value="">All versions</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Query Input -->
+                    <div class="bg-slate-800 rounded-lg p-4 mb-6 border border-slate-700">
+                        <div class="flex gap-3">
+                            <input 
+                                type="text" 
+                                id="queryInput" 
+                                placeholder="💬 Ask a question about the service..." 
+                                class="query-input flex-1 px-4 py-3 rounded-lg"
+                                onkeypress="if(event.key==='Enter') submitQuery()"
+                            >
+                            <button 
+                                onclick="submitQuery()" 
+                                id="sendBtn"
+                                class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition">
+                                Send
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Response Area -->
+                    <div id="responseArea" class="hidden">
+                        <div class="bg-slate-800 rounded-lg p-6 mb-6 border border-slate-700">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-lg font-semibold text-gray-200">Response</h3>
+                                <span id="confidenceBadge" class="text-sm font-medium"></span>
+                            </div>
+                            <div id="answerContent" class="prose prose-invert max-w-none text-gray-300"></div>
+                        </div>
+
+                        <!-- Sources -->
+                        <div class="bg-slate-800 rounded-lg p-6 border border-slate-700">
+                            <h3 class="text-lg font-semibold text-gray-200 mb-4">📚 Sources</h3>
+                            <div id="sourcesContent" class="space-y-3"></div>
+                        </div>
+                    </div>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="hidden bg-slate-800 rounded-lg p-6 border border-slate-700 text-center">
+                        <div class="spinner mx-auto mb-3"></div>
+                        <p class="text-gray-400">Searching documentation...</p>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div id="quickActions" class="bg-slate-800 rounded-lg p-6 border border-slate-700">
+                        <h3 class="text-lg font-semibold text-gray-200 mb-4">💡 Common Questions</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <button onclick="askQuestion('What are the available API endpoints?')" class="text-left bg-slate-700 hover:bg-slate-600 px-4 py-3 rounded-lg text-sm transition">
+                                What are the available API endpoints?
+                            </button>
+                            <button onclick="askQuestion('How do I authenticate?')" class="text-left bg-slate-700 hover:bg-slate-600 px-4 py-3 rounded-lg text-sm transition">
+                                How do I authenticate?
+                            </button>
+                            <button onclick="askQuestion('What is the payment reference format?')" class="text-left bg-slate-700 hover:bg-slate-600 px-4 py-3 rounded-lg text-sm transition">
+                                What is the payment reference format?
+                            </button>
+                            <button onclick="askQuestion('How do I handle errors?')" class="text-left bg-slate-700 hover:bg-slate-600 px-4 py-3 rounded-lg text-sm transition">
+                                How do I handle errors?
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Upload Modal -->
+    <div id="uploadModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-slate-800 rounded-lg p-6 w-full max-w-md border border-slate-700">
+            <h3 class="text-xl font-semibold mb-4 text-gray-200">Upload Document</h3>
+            <form id="uploadForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">Service Code</label>
+                    <input type="text" id="uploadServiceCode" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-gray-200" required>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">Document Type</label>
+                    <select id="uploadDocType" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-gray-200">
+                        <option value="MARKDOWN">Markdown</option>
+                        <option value="OPENAPI">OpenAPI</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">Version</label>
+                    <input type="text" id="uploadVersion" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-gray-200" required>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">File</label>
+                    <input type="file" id="uploadFile" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-gray-200" required>
+                </div>
+                <div class="flex gap-3">
+                    <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition">
+                        Upload
+                    </button>
+                    <button type="button" onclick="hideUploadModal()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg font-medium transition">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Service Modal -->
+    <div id="serviceModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-slate-800 rounded-lg p-6 w-full max-w-md border border-slate-700">
+            <h3 class="text-xl font-semibold mb-4 text-gray-200">Add Service</h3>
+            <form id="serviceForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">Service Code</label>
+                    <input type="text" id="serviceCode" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-gray-200" required>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">Service Name</label>
+                    <input type="text" id="serviceName" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-gray-200" required>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">Domain</label>
+                    <input type="text" id="serviceDomain" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-gray-200" required>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">Owning Team</label>
+                    <input type="text" id="serviceTeam" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-gray-200" required>
+                </div>
+                <div class="flex gap-3">
+                    <button type="submit" class="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition">
+                        Create
+                    </button>
+                    <button type="button" onclick="hideServiceModal()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg font-medium transition">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080/api';
+        let currentServices = [];
+        let currentUser = 'admin';
+        let currentRole = 'ADMIN';
+
+        // Check user role on username change
+        document.getElementById('usernameInput').addEventListener('change', async (e) => {
+            currentUser = e.target.value;
+            await checkUserRole();
+        });
+
+        async function checkUserRole() {
+            try {
+                const response = await fetch(`${API_BASE}/services`, {
+                    headers: { 'X-User': currentUser }
+                });
+                if (response.ok) {
+                    currentRole = currentUser === 'admin' ? 'ADMIN' : 'USER';
+                    document.getElementById('userRole').textContent = currentRole;
+                    document.getElementById('userRole').className = currentRole === 'ADMIN' ? 
+                        'text-xs px-2 py-1 rounded bg-blue-600 text-white' : 
+                        'text-xs px-2 py-1 rounded bg-gray-600 text-white';
+                    updateUIForRole();
+                }
+            } catch (error) {
+                console.error('Error checking role:', error);
+            }
+        }
+
+        function updateUIForRole() {
+            const isAdmin = currentRole === 'ADMIN';
+            document.getElementById('uploadBtn').style.display = isAdmin ? 'block' : 'none';
+            document.getElementById('addServiceBtn').style.display = isAdmin ? 'block' : 'none';
+        }
+
+        // Load services on page load
+        async function loadServices() {
+            try {
+                const response = await fetch(`${API_BASE}/services`);
+                currentServices = await response.json();
+                renderServiceList(currentServices);
+                populateServiceSelect(currentServices);
+                updateStats();
+            } catch (error) {
+                console.error('Error loading services:', error);
+                document.getElementById('serviceList').innerHTML = '<div class="text-sm text-red-400">Error loading services</div>';
+            }
+        }
+
+        function renderServiceList(services) {
+            const list = document.getElementById('serviceList');
+            if (services.length === 0) {
+                list.innerHTML = '<div class="text-sm text-gray-500">No services found</div>';
+                return;
+            }
+            list.innerHTML = services.map(s => `
+                <div class="service-item px-3 py-2 rounded-lg cursor-pointer" onclick="selectService('${s.serviceCode}')">
+                    <div class="font-medium text-sm">${s.name}</div>
+                    <div class="text-xs text-gray-400">${s.serviceCode}</div>
+                </div>
+            `).join('');
+        }
+
+        function populateServiceSelect(services) {
+            const select = document.getElementById('serviceSelect');
+            select.innerHTML = '<option value="">Select a service...</option>' + 
+                services.map(s => `<option value="${s.serviceCode}">${s.name} (${s.serviceCode})</option>`).join('');
+        }
+
+        function selectService(serviceCode) {
+            document.getElementById('serviceSelect').value = serviceCode;
+        }
+
+        function updateStats() {
+            document.getElementById('statsServices').textContent = currentServices.length;
+        }
+
+        async function submitQuery() {
+            const serviceCode = document.getElementById('serviceSelect').value;
+            const query = document.getElementById('queryInput').value.trim();
+
+            if (!serviceCode) {
+                alert('Please select a service');
+                return;
+            }
+            if (!query) {
+                alert('Please enter a question');
+                return;
+            }
+
+            // Show loading
+            document.getElementById('responseArea').classList.add('hidden');
+            document.getElementById('quickActions').classList.add('hidden');
+            document.getElementById('loadingState').classList.remove('hidden');
+            document.getElementById('sendBtn').disabled = true;
+
+            try {
+                const response = await fetch(`${API_BASE}/query`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-User': currentUser
+                    },
+                    body: JSON.stringify({ serviceCode, query, userId: currentUser })
+                });
+
+                const data = await response.json();
+                displayResponse(data);
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error querying the system');
+            } finally {
+                document.getElementById('loadingState').classList.add('hidden');
+                document.getElementById('sendBtn').disabled = false;
+            }
+        }
+
+        function displayResponse(data) {
+            // Show response area
+            document.getElementById('responseArea').classList.remove('hidden');
+
+            // Display answer with proper formatting
+            const answerDiv = document.getElementById('answerContent');
+            answerDiv.innerHTML = marked.parse(data.answer);
+            answerDiv.style.whiteSpace = 'pre-wrap';
+            answerDiv.style.lineHeight = '1.6';
+
+            // Display confidence
+            const badge = document.getElementById('confidenceBadge');
+            const confidenceClass = data.confidence === 'high' ? 'confidence-high' : 
+                                   data.confidence === 'medium' ? 'confidence-medium' : 'confidence-low';
+            badge.className = `text-sm font-medium ${confidenceClass}`;
+            badge.textContent = `Confidence: ${data.confidence}`;
+
+            // Display sources
+            const sourcesDiv = document.getElementById('sourcesContent');
+            if (data.sources && data.sources.length > 0) {
+                sourcesDiv.innerHTML = data.sources.map((source, idx) => `
+                    <div class="source-card p-4 rounded-lg">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium text-blue-400">${source.documentType} - ${source.version}</span>
+                            <span class="text-xs text-gray-500">#${idx + 1}</span>
+                        </div>
+                        <div class="text-sm font-medium text-gray-300 mb-2">${source.section}</div>
+                        <div class="text-sm text-gray-400" style="white-space: pre-wrap;">${source.excerpt}</div>
+                    </div>
+                `).join('');
+            } else {
+                sourcesDiv.innerHTML = '<div class="text-sm text-gray-500">No sources available</div>';
+            }
+
+            // Highlight code blocks
+            document.querySelectorAll('pre code').forEach((block) => {
+                hljs.highlightElement(block);
+            });
+        }
+
+        function askQuestion(question) {
+            document.getElementById('queryInput').value = question;
+            submitQuery();
+        }
+
+        function showServiceModal() {
+            if (currentRole !== 'ADMIN') {
+                alert('Only admins can add services');
+                return;
+            }
+            document.getElementById('serviceModal').classList.remove('hidden');
+        }
+
+        function hideServiceModal() {
+            document.getElementById('serviceModal').classList.add('hidden');
+        }
+
+        function showUploadModal() {
+            if (currentRole !== 'ADMIN') {
+                alert('Only admins can upload documents');
+                return;
+            }
+            document.getElementById('uploadModal').classList.remove('hidden');
+        }
+
+        function hideUploadModal() {
+            document.getElementById('uploadModal').classList.add('hidden');
+        }
+
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<div class="spinner inline-block mr-2"></div>Uploading...';
+            
+            const formData = new FormData();
+            formData.append('file', document.getElementById('uploadFile').files[0]);
+            formData.append('serviceCode', document.getElementById('uploadServiceCode').value);
+            formData.append('documentType', document.getElementById('uploadDocType').value);
+            formData.append('version', document.getElementById('uploadVersion').value);
+
+            try {
+                const response = await fetch(`${API_BASE}/documents/upload`, {
+                    method: 'POST',
+                    headers: { 'X-User': currentUser },
+                    body: formData
+                });
+
+                if (response.ok) {
+                    alert('Document uploaded successfully!');
+                    hideUploadModal();
+                    loadServices();
+                    e.target.reset();
+                } else {
+                    const error = await response.text();
+                    alert('Upload failed: ' + error);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error uploading document: ' + error.message);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Upload';
+            }
+        });
+
+        // Initialize
+        loadServices();
+        checkUserRole();
+    </script>
+</body>
+</html>
+
+        document.getElementById('serviceForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Creating...';
+            
+            const serviceData = {
+                serviceCode: document.getElementById('serviceCode').value,
+                name: document.getElementById('serviceName').value,
+                domain: document.getElementById('serviceDomain').value,
+                owningTeam: document.getElementById('serviceTeam').value,
+                status: 'ACTIVE'
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/services`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-User': currentUser
+                    },
+                    body: JSON.stringify(serviceData)
+                });
+
+                if (response.ok) {
+                    alert('Service created successfully!');
+                    hideServiceModal();
+                    loadServices();
+                    e.target.reset();
+                } else {
+                    const error = await response.json();
+                    alert('Failed to create service: ' + (error.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error creating service: ' + error.message);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Create';
+            }
+        });
+
+    <script>
+        // Check if user is logged in
+        if (!sessionStorage.getItem('username')) {
+            window.location.href = '/';
+        }
+        
+        // Set user from session
+        currentUser = sessionStorage.getItem('username');
+        currentRole = sessionStorage.getItem('role');
+        document.getElementById('usernameInput').value = currentUser;
+        document.getElementById('usernameInput').disabled = true;
+        document.getElementById('userRole').textContent = currentRole;
+        document.getElementById('userRole').className = currentRole === 'ADMIN' ? 
+            'text-xs px-2 py-1 rounded bg-blue-600 text-white' : 
+            'text-xs px-2 py-1 rounded bg-gray-600 text-white';
+        updateUIForRole();
+        
+        // Add logout button
+        const header = document.querySelector('header .flex.items-center.gap-4');
+        const logoutBtn = document.createElement('button');
+        logoutBtn.textContent = 'Logout';
+        logoutBtn.className = 'bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm transition';
+        logoutBtn.onclick = () => {
+            sessionStorage.clear();
+            window.location.href = '/';
+        };
+        header.appendChild(logoutBtn);
+    </script>

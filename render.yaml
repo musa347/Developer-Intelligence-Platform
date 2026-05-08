@@ -1,0 +1,67 @@
+services:
+  - type: web
+    name: developer-intelligence-platform
+    env: java
+    plan: free
+    buildCommand: ./mvnw clean package -DskipTests
+    startCommand: java -jar target/DeveloperIntelligencePlatform-1.0-SNAPSHOT.jar
+    envVars:
+      - key: PORT
+        value: 8080
+      - key: QDRANT_PORT
+        value: 6334
+      - key: QDRANT_USE_TLS
+        value: true
+      - key: QDRANT_COLLECTION_NAME
+        value: cpdip-docs
+      # ONNX Embedding Configuration
+      - key: EMBEDDING_PROVIDER
+        value: onnx
+      - key: EMBEDDING_MODEL_PATH
+        value: models/all-MiniLM-L6-v2/model.onnx
+      - key: EMBEDDING_TOKENIZER_PATH
+        value: models/all-MiniLM-L6-v2/tokenizer.json
+      - key: EMBEDDING_DIMENSION
+        value: 384
+      - key: EMBEDDING_MAX_TOKENS
+        value: 256
+      - key: EMBEDDING_NORMALIZE
+        value: true
+      # Groq LLM Configuration
+      - key: LLM_MODEL
+        value: llama-3.1-8b-instant
+      - key: LLM_URL
+        value: https://api.groq.com/openai/v1
+      - key: LLM_TEMPERATURE
+        value: 0.1
+      - key: LLM_MAX_TOKENS
+        value: 512
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_USERNAME
+        sync: false
+      - key: DATABASE_PASSWORD
+        sync: false
+      - key: QDRANT_HOST
+        sync: false
+      - key: QDRANT_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: BASE_URL
+        value: https://developer-intelligence-platform.onrender.com
+      - key: MAIL_HOST
+        sync: false
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: APP_BASE_URL
+        value: https://developer-intelligence-platform.onrender.com
+    buildCommand: echo "Building with Docker"
