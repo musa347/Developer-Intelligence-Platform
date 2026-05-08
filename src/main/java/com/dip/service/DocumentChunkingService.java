@@ -81,7 +81,7 @@ public class DocumentChunkingService {
                 int newHeadingLevel = getHeadingLevel(line);
                 
                 // Save previous section if it has meaningful content
-                if (currentSection.length() > 50) { // Require minimum content length
+                if (currentSection.length() > 300) { // Require minimum content length
                     chunks.add(createChunk(
                             artifactId,
                             currentTitle,
@@ -107,7 +107,7 @@ public class DocumentChunkingService {
         }
 
         // Add the last section if it has meaningful content
-        if (currentSection.length() > 50) {
+        if (currentSection.length() > 300) {
             chunks.add(createChunk(
                     artifactId,
                     currentTitle,
@@ -151,7 +151,7 @@ public class DocumentChunkingService {
         
         for (int i = 0; i < paragraphs.length; i++) {
             String paragraph = paragraphs[i].trim();
-            if (!paragraph.isEmpty() && paragraph.length() > 50) { // Skip very short paragraphs
+            if (!paragraph.isEmpty() && paragraph.length() > 300) { // Skip very short paragraphs
                 chunks.add(createChunk(
                         artifactId,
                         "Paragraph " + (i + 1),
@@ -180,12 +180,7 @@ public class DocumentChunkingService {
             return true;
         }
 
-        // Check for ALL CAPS headings (minimum 3 characters, not just numbers)
-        if (line.matches("^[A-Z][A-Z0-9\\s-]{2,}[A-Z0-9]$") &&
-                !line.matches(".*[a-z].*")) {
-            return true;
-        }
-
+        // ALL CAPS detection disabled - causes false splits on PDF-parsed text
         return false;
     }
 
