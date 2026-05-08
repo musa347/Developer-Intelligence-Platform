@@ -157,7 +157,7 @@ public class DocumentChunkingService {
                         "Paragraph " + (i + 1),
                         paragraph,
                         i,
-                        ChunkType.CONCEPT
+                        ChunkType.ERROR
                 ));
             }
         }
