@@ -213,12 +213,12 @@ public class OnnxEmbeddingBackend implements EmbeddingBackend {
     }
 
     private void downloadModelFile(Path targetPath) throws IOException {
-        String modelUrl = "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/model.onnx";
+        String modelUrl = "https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/main/onnx/model.onnx";
         downloadFile(modelUrl, targetPath, "Downloading ONNX model...");
     }
 
     private void downloadTokenizerFile(Path targetPath) throws IOException {
-        String tokenizerUrl = "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/tokenizer.json";
+        String tokenizerUrl = "https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/main/tokenizer.json";
         downloadFile(tokenizerUrl, targetPath, "Downloading tokenizer...");
     }
 
