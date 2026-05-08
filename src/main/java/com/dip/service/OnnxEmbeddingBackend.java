@@ -36,6 +36,9 @@ public class OnnxEmbeddingBackend implements EmbeddingBackend {
     public OnnxEmbeddingBackend(EmbeddingConfig embeddingConfig) {
         this.embeddingConfig = embeddingConfig;
         try {
+            // Ensure model files exist, download if missing
+            ensureModelFilesExist();
+            
             validateModelAssets(embeddingConfig.getModelPath(), embeddingConfig.getTokenizerPath());
             this.environment = OrtEnvironment.getEnvironment();
             this.session = environment.createSession(
@@ -188,6 +191,42 @@ public class OnnxEmbeddingBackend implements EmbeddingBackend {
         }
         if (!Files.exists(tokenizerPath)) {
             throw new IOException("Embedding tokenizer not found at " + tokenizerPath);
+        }
+    }
+
+    private void ensureModelFilesExist() throws IOException {
+        Path modelPath = embeddingConfig.getModelPath();
+        Path tokenizerPath = embeddingConfig.getTokenizerPath();
+        
+        // Download model if missing
+        if (!Files.exists(modelPath)) {
+            downloadModelFile(modelPath);
+        }
+        
+        // Download tokenizer if missing
+        if (!Files.exists(tokenizerPath)) {
+            downloadTokenizerFile(tokenizerPath);
+        }
+    }
+
+    private void downloadModelFile(Path targetPath) throws IOException {
+        String modelUrl = "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/pytorch_model.bin";
+        downloadFile(modelUrl, targetPath, "Downloading ONNX model...");
+    }
+
+    private void downloadTokenizerFile(Path targetPath) throws IOException {
+        String tokenizerUrl = "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/tokenizer.json";
+        downloadFile(tokenizerUrl, targetPath, "Downloading tokenizer...");
+    }
+
+    private void downloadFile(String url, Path targetPath, String description) throws IOException {
+        System.out.println(description + " from " + url);
+        try (InputStream in = new URL(url).openStream()) {
+            Files.createDirectories(targetPath.getParent());
+            Files.copy(in, targetPath, StandardCopyOption.REPLACE_EXISTING);
+            System.out.println("Downloaded to: " + targetPath);
+        } catch (Exception e) {
+            throw new IOException("Failed to download " + description + " from " + url, e);
         }
     }
 
