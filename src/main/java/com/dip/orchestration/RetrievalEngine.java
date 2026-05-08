@@ -48,7 +48,7 @@ public class RetrievalEngine {
         List<ScoredPoint> scoredPoints = vectorStoreService.searchSimilarWithScores(
                 queryEmbedding, 
                 serviceId, 
-                topK * 2, // Get more candidates for better filtering
+                topK * 3, // Get more candidates for better recall
                 filterType
         );
         
@@ -193,7 +193,7 @@ public class RetrievalEngine {
         
         // Apply minimum score threshold
         results = results.stream()
-                .filter(result -> result.getScore() > 0.3f) // Minimum relevance threshold
+                .filter(result -> result.getScore() > 0.2f) // Minimum relevance threshold
                 .collect(Collectors.toList());
         
         // Strategy-specific filtering
