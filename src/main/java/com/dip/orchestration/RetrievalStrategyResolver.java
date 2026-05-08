@@ -17,10 +17,10 @@ public class RetrievalStrategyResolver {
     
     public int getTopK(RetrievalStrategy strategy) {
         return switch (strategy) {
-            case ENDPOINT_DRILLDOWN -> 5;
-            case TROUBLESHOOTING -> 8;
-            case ARCHITECTURE -> 10;
-            case DOCUMENTATION -> 10;
+            case ENDPOINT_DRILLDOWN -> 8;
+            case TROUBLESHOOTING -> 10;
+            case ARCHITECTURE -> 12;
+            case DOCUMENTATION -> 15;
             case VERSION_DIFF -> 15;
         };
     }
