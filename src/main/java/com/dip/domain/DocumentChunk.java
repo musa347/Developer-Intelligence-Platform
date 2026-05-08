@@ -15,9 +15,8 @@ public class DocumentChunk {
     @JoinColumn(name = "artifact_id", nullable = false)
     private DocumentArtifact artifact;
     
-    // Content is NOT stored in PostgreSQL - only in Qdrant vector store
-    // This field is transient and only used during ingestion
-    @Transient
+    // Content is stored in PostgreSQL for retrieval
+    @Column(columnDefinition = "TEXT")
     private String content;
     
     private String section;

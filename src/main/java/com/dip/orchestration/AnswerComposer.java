@@ -28,10 +28,6 @@ public class AnswerComposer {
         for (int i = 0; i < chunks.size(); i++) {
             DocumentChunk chunk = chunks.get(i);
             String content = chunk.getContent();
-            if (content == null || content.isBlank()) {
-                System.out.println("[ANSWER COMPOSER DEBUG] Chunk " + i + " has null/blank content, skipping");
-                continue;
-            }
             System.out.println("[ANSWER COMPOSER DEBUG] Chunk " + i + " length: " + content.length() + 
                              ", section: " + chunk.getSection() + 
                              ", type: " + chunk.getChunkType());

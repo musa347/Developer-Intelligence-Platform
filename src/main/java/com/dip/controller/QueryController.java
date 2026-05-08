@@ -32,7 +32,6 @@ public class QueryController {
         dto.setConfidence(response.getConfidence());
         dto.setServiceCode(request.getServiceCode());
         dto.setSources(response.getChunks().stream()
-                .filter(chunk -> chunk.getArtifact() != null && chunk.getContent() != null)
                 .map(chunk -> {
                     var source = new Source();
                     source.setDocumentType(chunk.getArtifact().getDocumentType().name());
