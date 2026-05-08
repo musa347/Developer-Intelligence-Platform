@@ -58,6 +58,17 @@ public class DocumentIngestionService {
         com.dip.domain.Service service = serviceRegistryService.getServiceByCode(serviceCode);
         log.info("[DEBUG] Found service: {} (ID: {})", service.getName(), service.getId());
 
+        // Delete existing artifacts and chunks for this service+type+version to prevent duplicates
+        List<DocumentArtifact> existing = artifactRepository.findByServiceIdAndDocumentType(service.getId(), documentType);
+        existing.stream()
+                .filter(a -> version.equals(a.getVersion()))
+                .forEach(a -> {
+                    chunkRepository.deleteAll(chunkRepository.findByArtifactId(a.getId()));
+                    artifactRepository.delete(a);
+                });
+        log.info("[DEBUG] Removed {} existing artifact(s) for service={}, type={}, version={}",
+                existing.size(), serviceCode, documentType, version);
+
         // Clean null bytes to prevent PostgreSQL errors
         String cleanedContent = content.replace("\u0000", "");
 
