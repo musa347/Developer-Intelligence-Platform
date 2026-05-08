@@ -15,9 +15,6 @@ import java.util.concurrent.TimeUnit;
 @Configuration
 public class WebClientConfig {
     
-    @Value("${embedding.model.url}")
-    private String embeddingUrl;
-    
     @Value("${qdrant.host}")
     private String qdrantHost;
     
@@ -48,13 +45,6 @@ public class WebClientConfig {
         return WebClient.builder()
             .baseUrl(llmUrl)
             .clientConnector(new ReactorClientHttpConnector(httpClient))
-            .build();
-    }
-    
-    @Bean
-    public WebClient embeddingWebClient() {
-        return WebClient.builder()
-            .baseUrl(embeddingUrl)
             .build();
     }
     

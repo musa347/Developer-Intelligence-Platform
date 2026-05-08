@@ -23,8 +23,8 @@ public class AnswerComposer {
         }
         
         StringBuilder context = new StringBuilder();
-        int charBudget = 8000;
-        
+        int charBudget = 16000;
+
         for (int i = 0; i < chunks.size(); i++) {
             DocumentChunk chunk = chunks.get(i);
             String content = chunk.getContent();

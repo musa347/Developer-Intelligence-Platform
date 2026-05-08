@@ -1,9 +1,10 @@
 services:
   - type: web
     name: developer-intelligence-platform
-    env: docker
+    env: java
     plan: free
-    dockerfilePath: ./Dockerfile
+    buildCommand: ./mvnw clean package -DskipTests
+    startCommand: java -jar target/DeveloperIntelligencePlatform-1.0-SNAPSHOT.jar
     envVars:
       - key: PORT
         value: 8080
@@ -13,10 +14,24 @@ services:
         value: true
       - key: QDRANT_COLLECTION_NAME
         value: cpdip-docs
-      - key: EMBEDDING_MODEL
-        value: text-embedding-3-small
+      # ONNX Embedding Configuration
+      - key: EMBEDDING_PROVIDER
+        value: onnx
+      - key: EMBEDDING_MODEL_PATH
+        value: models/all-MiniLM-L6-v2/model.onnx
+      - key: EMBEDDING_TOKENIZER_PATH
+        value: models/all-MiniLM-L6-v2/tokenizer.json
+      - key: EMBEDDING_DIMENSION
+        value: 384
+      - key: EMBEDDING_MAX_TOKENS
+        value: 256
+      - key: EMBEDDING_NORMALIZE
+        value: true
+      # Groq LLM Configuration
       - key: LLM_MODEL
         value: llama-3.1-8b-instant
+      - key: LLM_URL
+        value: https://api.groq.com/openai/v1
       - key: LLM_TEMPERATURE
         value: 0.1
       - key: LLM_MAX_TOKENS

@@ -18,7 +18,8 @@ import java.util.Map;
 public class QdrantInitializationService {
     
     private final WebClient qdrantWebClient;
-    
+    private final EmbeddingService embeddingService;
+
     @Value("${qdrant.collection-name}")
     private String collectionName;
     
@@ -63,7 +64,7 @@ public class QdrantInitializationService {
     
     private void createCollection() {
         Map<String, Object> vectorsConfig = Map.of(
-            "size", 1536,
+            "size", embeddingService.getEmbeddingDimension(),
             "distance", "Cosine"
         );
         

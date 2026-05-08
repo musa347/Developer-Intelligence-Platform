@@ -14,6 +14,7 @@ import java.util.concurrent.ExecutionException;
 public class VectorStoreService {
 
     private final QdrantClient qdrantClient;
+    private final EmbeddingService embeddingService;
 
     @org.springframework.beans.factory.annotation.Value("${qdrant.collection-name}")
     private String collectionName;
@@ -37,8 +38,22 @@ public class VectorStoreService {
 
     private boolean collectionExists() throws ExecutionException, InterruptedException {
         try {
-            qdrantClient.getCollectionInfoAsync(collectionName).get();
+            var collectionInfo = qdrantClient.getCollectionInfoAsync(collectionName).get();
+            if (collectionInfo.getConfig().getParams().hasVectorsConfig()
+                    && collectionInfo.getConfig().getParams().getVectorsConfig().hasParams()) {
+                long existingDimension = collectionInfo.getConfig().getParams().getVectorsConfig().getParams().getSize();
+                int embeddingDimension = embeddingService.getEmbeddingDimension();
+                if (existingDimension != embeddingDimension) {
+                    throw new IllegalStateException(
+                            "Qdrant collection dimension mismatch. Existing=" + existingDimension +
+                                    ", embedding model=" + embeddingDimension +
+                                    ". Recreate the collection and re-ingest documents."
+                    );
+                }
+            }
             return true;
+        } catch (IllegalStateException e) {
+            throw e;
         } catch (Exception e) {
             return false;
         }
@@ -48,7 +63,7 @@ public class VectorStoreService {
         qdrantClient.createCollectionAsync(
                 collectionName,
                 VectorParams.newBuilder()
-                        .setSize(1536)
+                        .setSize(embeddingService.getEmbeddingDimension())
                         .setDistance(Distance.Cosine)
                         .build()
         ).get();

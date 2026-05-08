@@ -10,21 +10,16 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class DocumentChunkingService {
-    
-    private static final Pattern HEADING_PATTERN = Pattern.compile(
-            "^(?:" +
-                    "#+\\s*|" +                           // Markdown headings (#, ##, ###)
-                    "(?:SECTION\\s+)?[0-9]+(?:\\.[0-9]+)*\\.?\\s*|" +  // Section numbers (1, 1.1, 1.1.1)
-                    "(?=[A-Z][A-Z0-9\\s]*[A-Z0-9]$)" +    // ALL CAPS lines
-                    ")",
-            Pattern.MULTILINE
-    );
+
+    private static final int MIN_CHUNK_SIZE = 120;
+    private static final int TARGET_CHUNK_CHARS = 1000;
+    private static final int MAX_CHUNK_CHARS = 1400;
+    private static final int CHUNK_OVERLAP_CHARS = 180;
 
     public List<DocumentChunk> chunkDocument(String artifactId, DocumentType documentType, String content) {
         List<DocumentChunk> chunks = new ArrayList<>();
@@ -56,49 +51,27 @@ public class DocumentChunkingService {
         StringBuilder currentSection = new StringBuilder();
         String currentTitle = "Introduction";
         int sectionNumber = 0;
-        boolean inCodeBlock = false;
-        int headingLevel = 0;
 
         for (String line : lines) {
             line = line.trim();
 
-            // Skip code blocks
-            if (line.startsWith("```")) {
-                inCodeBlock = !inCodeBlock;
-                if (!inCodeBlock) {
-                    currentSection.append("```\n");
-                } else {
-                    currentSection.append("```\n");
-                }
-                continue;
-            }
-            if (inCodeBlock) {
-                currentSection.append(line).append("\n");
-                continue;
-            }
-
             if (isHeading(line)) {
                 int newHeadingLevel = getHeadingLevel(line);
-                
-                // Save previous section if it has meaningful content
-                if (currentSection.length() > 50) { // Require minimum content length
-                    chunks.add(createChunk(
+
+                if (currentSection.length() >= MIN_CHUNK_SIZE) {
+                    sectionNumber = appendMarkdownChunks(
+                            chunks,
                             artifactId,
                             currentTitle,
                             currentSection.toString().trim(),
-                            sectionNumber,
-                            ChunkType.CONCEPT
-                    ));
-                    sectionNumber++;
+                            sectionNumber
+                    );
                 }
-                
-                // For subheadings, append to current section instead of creating new chunk
-                if (newHeadingLevel <= 2) { // Only create new chunks for main sections (# and ##)
+
+                if (newHeadingLevel <= 2) {
                     currentTitle = extractTitle(line);
                     currentSection = new StringBuilder();
-                    headingLevel = newHeadingLevel;
                 } else {
-                    // Add subheading to current section content
                     currentSection.append("\n").append(line).append("\n");
                 }
             } else if (!line.isEmpty()) {
@@ -106,15 +79,14 @@ public class DocumentChunkingService {
             }
         }
 
-        // Add the last section if it has meaningful content
-        if (currentSection.length() > 50) {
-            chunks.add(createChunk(
+        if (currentSection.length() >= MIN_CHUNK_SIZE) {
+            appendMarkdownChunks(
+                    chunks,
                     artifactId,
                     currentTitle,
                     currentSection.toString().trim(),
-                    sectionNumber,
-                    ChunkType.CONCEPT
-            ));
+                    sectionNumber
+            );
         }
 
         return chunks;
@@ -151,7 +123,7 @@ public class DocumentChunkingService {
         
         for (int i = 0; i < paragraphs.length; i++) {
             String paragraph = paragraphs[i].trim();
-            if (!paragraph.isEmpty() && paragraph.length() > 50) { // Skip very short paragraphs
+            if (!paragraph.isEmpty() && paragraph.length() >= MIN_CHUNK_SIZE) {
                 chunks.add(createChunk(
                         artifactId,
                         "Paragraph " + (i + 1),
@@ -180,13 +152,75 @@ public class DocumentChunkingService {
             return true;
         }
 
-        // Check for ALL CAPS headings (minimum 3 characters, not just numbers)
-        if (line.matches("^[A-Z][A-Z0-9\\s-]{2,}[A-Z0-9]$") &&
-                !line.matches(".*[a-z].*")) {
-            return true;
+        // ALL CAPS detection disabled - causes false splits on PDF-parsed text
+        return false;
+    }
+
+    private int appendMarkdownChunks(List<DocumentChunk> chunks,
+                                     String artifactId,
+                                     String title,
+                                     String content,
+                                     int sectionNumber) {
+        for (String chunk : splitOversizedContent(content)) {
+            chunks.add(createChunk(
+                    artifactId,
+                    title,
+                    title + "\n" + chunk,
+                    sectionNumber,
+                    ChunkType.CONCEPT
+            ));
+            sectionNumber++;
+        }
+        return sectionNumber;
+    }
+
+    private List<String> splitOversizedContent(String content) {
+        List<String> chunks = new ArrayList<>();
+        if (content.length() <= MAX_CHUNK_CHARS) {
+            chunks.add(content);
+            return chunks;
         }
 
-        return false;
+        String remaining = content;
+        while (!remaining.isBlank()) {
+            if (remaining.length() <= MAX_CHUNK_CHARS) {
+                chunks.add(remaining.trim());
+                break;
+            }
+
+            int splitIndex = findSplitIndex(remaining);
+            chunks.add(remaining.substring(0, splitIndex).trim());
+            int nextStart = Math.max(0, splitIndex - CHUNK_OVERLAP_CHARS);
+            if (nextStart >= remaining.length()) {
+                break;
+            }
+            remaining = remaining.substring(nextStart).trim();
+        }
+
+        return chunks;
+    }
+
+    private int findSplitIndex(String content) {
+        int preferred = Math.min(content.length(), TARGET_CHUNK_CHARS);
+        int hardLimit = Math.min(content.length(), MAX_CHUNK_CHARS);
+
+        int paragraphBreak = content.lastIndexOf("\n\n", hardLimit);
+        if (paragraphBreak >= preferred / 2) {
+            return paragraphBreak;
+        }
+
+        int lineBreak = content.lastIndexOf('\n', hardLimit);
+        if (lineBreak >= preferred / 2) {
+            return lineBreak;
+        }
+
+        int sentenceBreak = Math.max(content.lastIndexOf(". ", hardLimit), content.lastIndexOf(": ", hardLimit));
+        if (sentenceBreak >= preferred / 2) {
+            return sentenceBreak + 1;
+        }
+
+        int whitespaceBreak = content.lastIndexOf(' ', hardLimit);
+        return whitespaceBreak > 0 ? whitespaceBreak : hardLimit;
     }
 
     private int getHeadingLevel(String line) {
