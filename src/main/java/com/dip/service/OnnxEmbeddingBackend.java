@@ -261,8 +261,12 @@ public class OnnxEmbeddingBackend implements EmbeddingBackend {
             // Add tokens up to maxTokens
             for (int i = 0; i < Math.min(words.length, maxTokens); i++) {
                 if (!words[i].isEmpty()) {
-                    // Simple hash-based token ID generation
-                    long tokenId = Math.abs(words[i].hashCode()) % 30000L + 1000L; // Avoid conflicts with special tokens
+                    // Generate token ID within model vocabulary range [-30522, 30521]
+                    long tokenId = Math.abs(words[i].hashCode()) % 30000L; // Range: 0-29999
+                    // Ensure it's within valid range
+                    if (tokenId > 30521) {
+                        tokenId = tokenId % 30522; // Keep within 0-30521
+                    }
                     tokenIds.add(tokenId);
                     attentionMask.add(1L);
                 }
