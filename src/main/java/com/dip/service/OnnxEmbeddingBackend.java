@@ -213,7 +213,7 @@ public class OnnxEmbeddingBackend implements EmbeddingBackend {
     }
 
     private void downloadModelFile(Path targetPath) throws IOException {
-        String modelUrl = "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/pytorch_model.bin";
+        String modelUrl = "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/model.onnx";
         downloadFile(modelUrl, targetPath, "Downloading ONNX model...");
     }
 
