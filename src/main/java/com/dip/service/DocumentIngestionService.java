@@ -58,6 +58,9 @@ public class DocumentIngestionService {
         com.dip.domain.Service service = serviceRegistryService.getServiceByCode(serviceCode);
         log.info("[DEBUG] Found service: {} (ID: {})", service.getName(), service.getId());
 
+        // Clean null bytes to prevent PostgreSQL errors
+        String cleanedContent = content.replace("\u0000", "");
+
         // Create artifact with content that will be persisted in PostgreSQL
         DocumentArtifact artifact = new DocumentArtifact();
         artifact.setService(service);
@@ -65,8 +68,8 @@ public class DocumentIngestionService {
         artifact.setVersion(version);
         artifact.setSourceReference(sourceReference);
         artifact.setEffectiveDate(LocalDate.now());
-        artifact.setContent(content); // Content will now be persisted in PostgreSQL
-        artifact.setContentLength(content.length());
+        artifact.setContent(cleanedContent);
+        artifact.setContentLength(cleanedContent.length());
         
         // Save artifact with content to PostgreSQL
         artifact = artifactRepository.save(artifact);
@@ -77,7 +80,7 @@ public class DocumentIngestionService {
                         artifact.getContent().substring(0, 50) + "..." : artifact.getContent());
 
         // Use improved chunking service
-        List<DocumentChunk> chunks = documentChunkingService.chunkDocument(artifact.getId().toString(), documentType, content);
+        List<DocumentChunk> chunks = documentChunkingService.chunkDocument(artifact.getId().toString(), documentType, cleanedContent);
         
         // Set artifact reference and chunk count
         for (DocumentChunk chunk : chunks) {
@@ -103,8 +106,8 @@ public class DocumentIngestionService {
             
             log.info("[DEBUG] Processing chunk {}/{} (vectorId: {})", i + 1, chunks.size(), chunk.getVectorId());
             try {
-                // Apply PII masking for security
-                String maskedContent = piiMaskingService.maskPII(chunk.getContent());
+                // Apply PII masking for security, also strip any residual null bytes
+                String maskedContent = piiMaskingService.maskPII(chunk.getContent()).replace("\u0000", "");
                 
                 // Generate embedding for masked content
                 float[] embedding = embeddingService.generateEmbedding(maskedContent);
