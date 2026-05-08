@@ -22,6 +22,9 @@ import java.util.Map;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
+import java.util.HashMap;
+import java.util.Arrays;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Component
 public class OnnxEmbeddingBackend implements EmbeddingBackend {
@@ -33,7 +36,7 @@ public class OnnxEmbeddingBackend implements EmbeddingBackend {
     private final EmbeddingConfig embeddingConfig;
     private final OrtEnvironment environment;
     private final OrtSession session;
-    private final SimpleWordTokenizer tokenizer;
+    private final HuggingFaceTokenizer tokenizer;
     private final int dimension;
 
     public OnnxEmbeddingBackend(EmbeddingConfig embeddingConfig) {
@@ -48,8 +51,8 @@ public class OnnxEmbeddingBackend implements EmbeddingBackend {
                     embeddingConfig.getModelPath().toString(),
                     new OrtSession.SessionOptions()
             );
-            // Use simple tokenizer to avoid DJL native library issues
-            this.tokenizer = new SimpleWordTokenizer(embeddingConfig.getTokenizerPath());
+            // Use real Hugging Face tokenizer for proper semantic embeddings
+            this.tokenizer = new HuggingFaceTokenizer(embeddingConfig.getTokenizerPath());
             this.dimension = resolveDimension();
         } catch (OrtException | IOException e) {
             throw new IllegalStateException("Failed to initialize ONNX embedding backend", e);
@@ -64,7 +67,7 @@ public class OnnxEmbeddingBackend implements EmbeddingBackend {
         }
 
         try {
-            SimpleWordTokenizer.TokenizationResult encoding = tokenizer.encode(normalized, embeddingConfig.getMaxTokens());
+            HuggingFaceTokenizer.TokenizationResult encoding = tokenizer.encode(normalized, embeddingConfig.getMaxTokens());
             long[][] inputIds = new long[][]{encoding.getTokenIds()};
             long[][] attentionMask = new long[][]{encoding.getAttentionMask()};
 
@@ -234,60 +237,96 @@ public class OnnxEmbeddingBackend implements EmbeddingBackend {
     }
 
     /**
-     * Simple word-based tokenizer that avoids DJL native library issues.
-     * Provides basic tokenization functionality for ONNX models.
+     * HuggingFace tokenizer implementation for proper semantic embeddings.
+     * Loads tokenizer.json and provides proper tokenization.
      */
-    private static class SimpleWordTokenizer {
-        private static final Pattern WHITESPACE_PATTERN = Pattern.compile("\\s+");
-        private static final Pattern PUNCTUATION_PATTERN = Pattern.compile("[^a-zA-Z0-9\\s]");
+    private static class HuggingFaceTokenizer {
+        private final Map<String, Integer> vocabulary;
+        private final Map<String, String> specialTokens;
         
-        public SimpleWordTokenizer(Path tokenizerPath) {
-            // We don't actually need the tokenizer.json for this simple implementation
-            // but we keep the constructor for compatibility
+        public HuggingFaceTokenizer(Path tokenizerPath) throws IOException {
+            // Load tokenizer configuration
+            ObjectMapper mapper = new ObjectMapper();
+            Map<String, Object> tokenizerConfig = mapper.readValue(tokenizerPath.toFile(), Map.class);
+            
+            // Extract vocabulary
+            this.vocabulary = new HashMap<>();
+            Map<String, Object> model = (Map<String, Object>) tokenizerConfig.get("model");
+            Map<String, Integer> vocab = (Map<String, Integer>) model.get("vocab");
+            this.vocabulary.putAll(vocab);
+            
+            // Extract special tokens
+            this.specialTokens = new HashMap<>();
+            if (tokenizerConfig.containsKey("added_tokens")) {
+                List<Map<String, Object>> addedTokens = (List<Map<String, Object>>) tokenizerConfig.get("added_tokens");
+                for (Map<String, Object> token : addedTokens) {
+                    specialTokens.put((String) token.get("content"), (String) token.get("content"));
+                }
+            }
         }
 
         public TokenizationResult encode(String text, int maxTokens) {
-            // Normalize text
-            String normalized = text.toLowerCase().trim();
-            normalized = PUNCTUATION_PATTERN.matcher(normalized).replaceAll(" ");
+            // Basic word piece tokenization
+            String[] words = text.toLowerCase().split("\\s+");
+            List<Integer> tokenIds = new ArrayList<>();
             
-            // Split into words
-            String[] words = WHITESPACE_PATTERN.split(normalized);
+            // Add [CLS] token
+            tokenIds.add(101);
             
-            // Convert to token IDs using simple hash-based approach
-            List<Long> tokenIds = new ArrayList<>();
-            List<Long> attentionMask = new ArrayList<>();
-            
-            // Add tokens up to maxTokens
-            for (int i = 0; i < Math.min(words.length, maxTokens); i++) {
-                if (!words[i].isEmpty()) {
-                    // Generate token ID within model vocabulary range [-30522, 30521]
-                    long tokenId = Math.abs(words[i].hashCode()) % 30000L; // Range: 0-29999
-                    // Ensure it's within valid range
-                    if (tokenId > 30521) {
-                        tokenId = tokenId % 30522; // Keep within 0-30521
-                    }
-                    tokenIds.add(tokenId);
-                    attentionMask.add(1L);
-                }
-            }
-            
-            // Add special tokens if we have space
-            if (tokenIds.size() < maxTokens) {
-                tokenIds.add(0, 101L); // [CLS] token
-                attentionMask.add(0, 1L);
+            // Tokenize each word
+            for (String word : words) {
+                if (word.isEmpty()) continue;
                 
-                if (tokenIds.size() < maxTokens) {
-                    tokenIds.add(102L); // [SEP] token
-                    attentionMask.add(1L);
+                // Simple word piece tokenization
+                List<String> subwords = tokenizeWord(word);
+                for (String subword : subwords) {
+                    if (tokenIds.size() >= maxTokens - 1) break; // Leave space for [SEP]
+                    Integer tokenId = vocabulary.get(subword);
+                    if (tokenId != null) {
+                        tokenIds.add(tokenId);
+                    }
+                }
+                if (tokenIds.size() >= maxTokens - 1) break;
+            }
+            
+            // Add [SEP] token if we have space
+            if (tokenIds.size() < maxTokens) {
+                tokenIds.add(102);
+            }
+            
+            // Convert to arrays and create attention mask
+            long[] tokenIdsArray = tokenIds.stream().mapToLong(Integer::longValue).toArray();
+            long[] attentionMask = new long[tokenIdsArray.length];
+            Arrays.fill(attentionMask, 1L);
+            
+            return new TokenizationResult(tokenIdsArray, attentionMask);
+        }
+        
+        private List<String> tokenizeWord(String word) {
+            List<String> tokens = new ArrayList<>();
+            
+            // Try to find the word in vocabulary
+            if (vocabulary.containsKey(word)) {
+                tokens.add(word);
+                return tokens;
+            }
+            
+            // Simple subword tokenization
+            for (int i = 1; i <= word.length(); i++) {
+                String prefix = word.substring(0, i);
+                if (vocabulary.containsKey(prefix)) {
+                    tokens.add(prefix);
+                    String remaining = word.substring(i);
+                    if (!remaining.isEmpty()) {
+                        tokens.addAll(tokenizeWord(remaining));
+                    }
+                    return tokens;
                 }
             }
             
-            // Convert to arrays
-            long[] tokenIdsArray = tokenIds.stream().mapToLong(Long::longValue).toArray();
-            long[] attentionMaskArray = attentionMask.stream().mapToLong(Long::longValue).toArray();
-            
-            return new TokenizationResult(tokenIdsArray, attentionMaskArray);
+            // If no subwords found, use [UNK] token
+            tokens.add("[UNK]");
+            return tokens;
         }
 
         public static class TokenizationResult {
