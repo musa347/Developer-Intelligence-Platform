@@ -23,8 +23,7 @@ public class DocumentController {
     
     @PostMapping("/ingest")
     public ResponseEntity<Map<String, Object>> ingestDocument(@RequestBody IngestRequest request) {
-        // Start async ingestion and return immediately
-        ingestionService.ingestDocumentAsync(
+        String jobId = ingestionService.startIngestionJob(
             request.getServiceCode(),
             request.getContent(),
             request.getDocumentType(),
@@ -33,8 +32,9 @@ public class DocumentController {
         );
         
         Map<String, Object> response = new HashMap<>();
-        response.put("message", "Document ingestion started successfully. Processing in background...");
+        response.put("message", "Document ingestion job created successfully");
         response.put("status", "PROCESSING");
+        response.put("jobId", jobId);
         response.put("serviceCode", request.getServiceCode());
         response.put("documentType", request.getDocumentType());
         
@@ -51,7 +51,7 @@ public class DocumentController {
         String content = new String(file.getBytes(), StandardCharsets.UTF_8);
         String sourceReference = file.getOriginalFilename();
 
-        ingestionService.ingestDocumentAsync(
+        String jobId = ingestionService.startIngestionJob(
             serviceCode,
             content,
             documentType,
@@ -60,12 +60,26 @@ public class DocumentController {
         );
         
         Map<String, Object> response = new HashMap<>();
-        response.put("message", "Document upload started successfully. Processing in background...");
+        response.put("message", "Document upload accepted and ingestion job created");
         response.put("status", "PROCESSING");
+        response.put("jobId", jobId);
         response.put("serviceCode", serviceCode);
         response.put("documentType", documentType);
         response.put("filename", sourceReference);
         
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/jobs/{jobId}")
+    public ResponseEntity<Map<String, Object>> getIngestionJobStatus(@PathVariable String jobId) {
+        return ingestionService.getIngestionJobStatus(jobId)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> {
+                    Map<String, Object> response = new HashMap<>();
+                    response.put("jobId", jobId);
+                    response.put("status", "NOT_FOUND");
+                    response.put("message", "Ingestion job not found");
+                    return ResponseEntity.status(404).body(response);
+                });
     }
 }

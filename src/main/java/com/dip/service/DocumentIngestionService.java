@@ -8,9 +8,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +27,8 @@ public class DocumentIngestionService {
     private final EmbeddingService embeddingService;
     private final ServiceRegistryService serviceRegistryService;
     private final VectorStoreService vectorStoreService;
+    private final Map<String, IngestionJobStatus> ingestionJobs = new ConcurrentHashMap<>();
+    private static final Pattern NULL_CHAR_PATTERN = Pattern.compile("\\u0000");
     
 
     public CompletableFuture<DocumentArtifact> ingestDocumentAsync(
@@ -43,6 +48,45 @@ public class DocumentIngestionService {
                 throw new RuntimeException("Async ingestion failed: " + e.getMessage(), e);
             }
         });
+    }
+
+    public String startIngestionJob(
+            String serviceCode,
+            String content,
+            DocumentType documentType,
+            String version,
+            String sourceReference) {
+        String jobId = UUID.randomUUID().toString();
+        IngestionJobStatus jobStatus = new IngestionJobStatus(
+                jobId,
+                serviceCode,
+                documentType != null ? documentType.name() : null,
+                version,
+                sourceReference
+        );
+        ingestionJobs.put(jobId, jobStatus);
+
+        CompletableFuture.supplyAsync(() -> {
+            try {
+                DocumentArtifact artifact = ingestDocument(serviceCode, content, documentType, version, sourceReference);
+                jobStatus.markCompleted(artifact.getId(), artifact.getChunkCount());
+                return artifact;
+            } catch (Exception e) {
+                log.error("[DEBUG] Ingestion job {} failed: {}", jobId, e.getMessage(), e);
+                jobStatus.markFailed(e.getMessage());
+                throw new RuntimeException("Ingestion job failed: " + e.getMessage(), e);
+            }
+        });
+
+        return jobId;
+    }
+
+    public Optional<Map<String, Object>> getIngestionJobStatus(String jobId) {
+        IngestionJobStatus status = ingestionJobs.get(jobId);
+        if (status == null) {
+            return Optional.empty();
+        }
+        return Optional.of(status.toMap());
     }
     
     @Transactional
@@ -69,15 +113,17 @@ public class DocumentIngestionService {
         log.info("[DEBUG] Removed {} existing artifact(s) for service={}, type={}, version={}",
                 existing.size(), serviceCode, documentType, version);
 
-        // Clean null bytes to prevent PostgreSQL errors
-        String cleanedContent = content.replace("\u0000", "");
+        // Clean null bytes aggressively to prevent PostgreSQL 0x00 errors
+        String cleanedContent = sanitizeText(content);
+        String cleanedVersion = sanitizeText(version);
+        String cleanedSourceReference = sanitizeText(sourceReference);
 
         // Create artifact with content that will be persisted in PostgreSQL
         DocumentArtifact artifact = new DocumentArtifact();
         artifact.setService(service);
         artifact.setDocumentType(documentType);
-        artifact.setVersion(version);
-        artifact.setSourceReference(sourceReference);
+        artifact.setVersion(cleanedVersion);
+        artifact.setSourceReference(cleanedSourceReference);
         artifact.setEffectiveDate(LocalDate.now());
         artifact.setContent(cleanedContent);
         artifact.setContentLength(cleanedContent.length());
@@ -117,8 +163,11 @@ public class DocumentIngestionService {
             
             log.info("[DEBUG] Processing chunk {}/{} (vectorId: {})", i + 1, chunks.size(), chunk.getVectorId());
             try {
-                // Apply PII masking for security, also strip any residual null bytes
-                String maskedContent = piiMaskingService.maskPII(chunk.getContent()).replace("\u0000", "");
+                // Apply PII masking and sanitize again before storing in downstream systems
+                String rawChunkContent = sanitizeText(chunk.getContent());
+                chunk.setContent(rawChunkContent);
+                chunk.setSection(sanitizeText(chunk.getSection()));
+                String maskedContent = sanitizeText(piiMaskingService.maskPII(rawChunkContent));
 
                 // Generate embedding for masked content
                 float[] embedding = embeddingService.generateEmbedding(maskedContent);
@@ -131,12 +180,12 @@ public class DocumentIngestionService {
                 payload.put("service_name", service.getName());
                 payload.put("artifact_id", artifact.getId());
                 payload.put("chunk_id", String.valueOf(chunk.getId()));
-                payload.put("section", chunk.getSection());
+                payload.put("section", sanitizeText(chunk.getSection()));
                 payload.put("section_number", chunk.getSectionNumber());
                 payload.put("chunk_type", chunk.getChunkType().name());
                 payload.put("document_type", documentType.name());
-                payload.put("version", version);
-                payload.put("source_reference", sourceReference);
+                payload.put("version", cleanedVersion);
+                payload.put("source_reference", cleanedSourceReference);
                 payload.put("effective_date", artifact.getEffectiveDate().toString());
                 payload.put("content", maskedContent); // FULL CONTENT also stored in Qdrant for search
                 payload.put("content_length", maskedContent.length());
@@ -154,5 +203,72 @@ public class DocumentIngestionService {
         
         log.info("[DEBUG] Document ingestion completed successfully for artifact: {}", artifact.getId());
         return artifact;
+    }
+
+    private String sanitizeText(String value) {
+        if (value == null) {
+            return "";
+        }
+        return NULL_CHAR_PATTERN.matcher(value).replaceAll("");
+    }
+
+    private static class IngestionJobStatus {
+        private final String jobId;
+        private final String serviceCode;
+        private final String documentType;
+        private final String version;
+        private final String sourceReference;
+        private final Instant createdAt;
+        private volatile Instant updatedAt;
+        private volatile String status;
+        private volatile Long artifactId;
+        private volatile Integer chunkCount;
+        private volatile String error;
+
+        private IngestionJobStatus(
+                String jobId,
+                String serviceCode,
+                String documentType,
+                String version,
+                String sourceReference) {
+            this.jobId = jobId;
+            this.serviceCode = serviceCode;
+            this.documentType = documentType;
+            this.version = version;
+            this.sourceReference = sourceReference;
+            this.createdAt = Instant.now();
+            this.updatedAt = this.createdAt;
+            this.status = "PROCESSING";
+        }
+
+        private void markCompleted(Long artifactId, Integer chunkCount) {
+            this.status = "COMPLETED";
+            this.artifactId = artifactId;
+            this.chunkCount = chunkCount;
+            this.error = null;
+            this.updatedAt = Instant.now();
+        }
+
+        private void markFailed(String errorMessage) {
+            this.status = "FAILED";
+            this.error = errorMessage;
+            this.updatedAt = Instant.now();
+        }
+
+        private Map<String, Object> toMap() {
+            Map<String, Object> response = new HashMap<>();
+            response.put("jobId", jobId);
+            response.put("status", status);
+            response.put("serviceCode", serviceCode);
+            response.put("documentType", documentType);
+            response.put("version", version);
+            response.put("sourceReference", sourceReference);
+            response.put("artifactId", artifactId);
+            response.put("chunkCount", chunkCount);
+            response.put("error", error);
+            response.put("createdAt", createdAt.toString());
+            response.put("updatedAt", updatedAt.toString());
+            return response;
+        }
     }
 }
