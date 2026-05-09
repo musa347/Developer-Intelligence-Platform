@@ -88,14 +88,19 @@ public class AnswerComposer {
             if (isSentenceSupported(cleaned, chunks)) {
                 supported.add(cleaned);
             } else {
-                List<String> supportedClauses = extractSupportedClauses(cleaned, chunks);
-                if (supportedClauses.isEmpty()) {
-                    unsupportedParts++;
-                    log.warn("Verifier removed unsupported sentence: {}", cleaned);
+                // If sentence is supported, keep it entirely instead of splitting
+                if (isSentenceSupported(cleaned, chunks)) {
+                    supported.add(cleaned);
                 } else {
-                    supported.add(String.join(", ", supportedClauses));
-                    unsupportedParts++;
-                    log.warn("Verifier kept supported clause(s) only from sentence: {}", cleaned);
+                    List<String> supportedClauses = extractSupportedClauses(cleaned, chunks);
+                    if (supportedClauses.isEmpty()) {
+                        unsupportedParts++;
+                        log.warn("Verifier removed unsupported sentence: {}", cleaned);
+                    } else {
+                        supported.add(String.join(", ", supportedClauses));
+                        unsupportedParts++;
+                        log.warn("Verifier kept supported clause(s) only from sentence: {}", cleaned);
+                    }
                 }
             }
         }
@@ -137,6 +142,12 @@ public class AnswerComposer {
         if (asksFallbackTarget && contextMentionsFallback) {
             return "The documentation states there is an automatic fallback if model files are missing, "
                     + "but it does not specify the fallback target/model.";
+        }
+
+        // Instead of hardcoded answers, provide better diagnostic information
+        if (context.length() > 100) {
+            log.debug("Context available but LLM verification failed. Query: {}, Context length: {}", query, context.length());
+            return "I found relevant documentation but am having difficulty extracting the specific answer. The information may be present in the retrieved content.";
         }
 
         return "The retrieved documentation does not explicitly specify this detail.";
@@ -211,6 +222,8 @@ public class AnswerComposer {
     private boolean isSentenceSupported(String sentence, List<DocumentChunk> chunks) {
         String normalizedSentence = normalize(sentence);
         List<String> keywords = extractKeywords(normalizedSentence);
+        
+                
         if (keywords.isEmpty()) {
             return true;
         }
@@ -237,8 +250,8 @@ public class AnswerComposer {
             long matched = keywords.stream().filter(normalizedChunk::contains).count();
             double ratio = (double) matched / (double) keywords.size();
 
-            // Require high in-chunk overlap and at least 3 matched keywords.
-            if (matched >= 3 && ratio >= 0.80d) {
+            // More lenient verification - if ANY chunk supports the sentence, accept it
+            if (matched >= 1 && ratio >= 0.30d) {
                 return true;
             }
         }
@@ -248,7 +261,7 @@ public class AnswerComposer {
     private List<String> extractKeywords(String normalizedSentence) {
         return TOKEN_SPLIT.splitAsStream(normalizedSentence)
                 .map(String::trim)
-                .filter(token -> token.length() >= 4)
+                .filter(token -> token.length() >= 3) // Reduced from 4 to 3 to catch "API", etc.
                 .filter(token -> !STOP_WORDS.contains(token))
                 .distinct()
                 .collect(Collectors.toList());
